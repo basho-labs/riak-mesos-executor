@@ -1,5 +1,5 @@
-# riak-mesos-erlang
-Top-level application forming the erlang-based Mesos Framework for running Riak
+# riak_mesos_executor
+Top-level application forming the erlang-based Mesos Executor for running Riak.
 
 ### Building
 
@@ -11,10 +11,10 @@ Alternatively `make stage` then `make recompile` when changes are made to `*.erl
 
 ### Testing
 
-#### Run the riak_mesos application
+#### Run the riak_mesos_executor application
 
 ```
-./rel/riak_mesos/bin/riak_mesos start
+./rel/riak_mesos_executor/bin/riak_mesos_executor start
 ```
 
 #### Clique Based CLI
@@ -22,47 +22,9 @@ Alternatively `make stage` then `make recompile` when changes are made to `*.erl
 Get the status
 
 ```
-./rel/riak_mesos/bin/riak-mesos-admin status
+./rel/riak_mesos_executor/bin/riak-mesos_executor-admin status
 ```
 
 ```
-{"status":"Initial Status"}
-```
-
-Set the status
-
-```
-./rel/riak_mesos/bin/riak_mesos-admin status -s Hello There
-```
-
-```
-{"status":"Hello There"}
-```
-
-#### Webmachine HTTP Resource
-
-Get the status
-
-```
-curl http://localhost:9090/api/v1/status
-```
-
-```
-{"status":"Hello There"}
-```
-
-Set the status
-
-```
-curl -i -XPUT -H "Content-Type: application/json" \
-    'http://localhost:9090/api/v1/status'
-    -d '{"status": "Hi There"}'
-```
-
-```
-HTTP/1.1 204 No Content
-Server: MochiWeb/1.1 WebMachine/1.10.8 (that head fake, tho)
-Date: Mon, 27 Jul 2015 20:12:17 GMT
-Content-Type: application/json
-Content-Length: 0
+{"alive":true}
 ```
