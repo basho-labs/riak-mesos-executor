@@ -1,0 +1,12 @@
+.eunit
+deps
+*.o
+*.beam
+*.plt
+erl_crash.dump
+*.beam
+ebin/*.app
+rel/riak_mesos_executor
+.concrete/DEV_MODE
+.rebar
+.vagrant
