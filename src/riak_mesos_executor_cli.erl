@@ -43,7 +43,7 @@ load_schema() ->
 
 %% TODO This needs to be more intelligent but it's a start.
 status(_Command, [], []) ->
-    Status = whereis(riak_mesos_executor_sup) /= undefined,
+    Status = whereis(riak_mesos_executor) /= undefined,
     [clique_status:text(io_lib:format("{\"alive\": ~p}", [Status]))].
 
 %%%===================================================================
