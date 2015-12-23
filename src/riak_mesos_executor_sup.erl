@@ -36,4 +36,6 @@ start_link() ->
 
 init([]) ->
     %% Executor = {...}
-    {ok, { {one_for_one, 5, 10}, []} }.
+    Mod = riak_mesos_executor,
+    Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
+    {ok, { {one_for_one, 5, 10}, [Executor]} }.

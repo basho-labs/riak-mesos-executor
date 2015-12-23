@@ -12,6 +12,7 @@
          shutdown/1,
          error/2
         ]).
+-export([start_link/0]).
 
 -include_lib("erlang_mesos/include/mesos_pb.hrl").
 
@@ -22,6 +23,9 @@
          framework_info,
          slave_info
         }).
+
+start_link() ->
+    executor:start_link(?MODULE, []).
 
 %% spec specifications
 -spec init(Args :: any()) -> {ok, #state{}}.
