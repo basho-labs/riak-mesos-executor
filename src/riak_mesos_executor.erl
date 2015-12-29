@@ -30,10 +30,10 @@ start_link() ->
 %% spec specifications
 -spec init(Args :: any()) -> {ok, #state{}}.
 init([]) ->
-    {ok, {}}.
+    {ok, #state{}}.
 
 -spec registered( ExecutorInfo :: #'ExecutorInfo'{},
-                      FrameworkInfo :: #'FrameworkInfo'{}, 
+                      FrameworkInfo :: #'FrameworkInfo'{},
                       SlaveInfo :: #'SlaveInfo'{},
                       #state{})-> {ok, #state{}}.
 registered(#'ExecutorInfo'{}=ExInfo,
