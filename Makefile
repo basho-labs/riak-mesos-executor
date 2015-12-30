@@ -19,6 +19,8 @@ recompile:
 	$(REBAR) compile skip_deps=true
 clean:
 	$(REBAR) clean
+depclean:
+	$(REBAR) -r clean
 deps:
 	$(REBAR) get-deps
 cleantest:
@@ -36,6 +38,7 @@ distclean: clean
 stage: rel
 	$(foreach dep,$(wildcard deps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) rel/riak_mesos_executor/lib;)
 	$(foreach app,$(wildcard apps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/riak_mesos_executor/lib;)
+recycle: relclean depclean rel
 
 ##
 ## Packaging targets
