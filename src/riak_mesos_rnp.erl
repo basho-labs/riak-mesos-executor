@@ -40,6 +40,7 @@
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
+    lager:info("TaskInfo: ~n~p~n", [TaskInfo]),
     #'TaskInfo'{
        name=_Name,
        task_id=_TaskId, % NB: This is a #'TaskID'{}
@@ -179,9 +180,8 @@ fmtlog(OSPid, Message) ->
 %% e.g. start("priv/riak-2.1.1/rel/riak", "bin/riak")
 start(Location, Script) ->
     {ok, Pid, OSPid} = rnp_sup_bridge:start_link(
-                         Script ++ " console -noinput, -no_epmd -user riak",
+                         Script ++ " console -noinput, -no_epmd",
                          [{cd, Location},
-                          verbose, debug,
                           {stdout, fun log/3},
                           {stderr, fun log/3}]),
     fmtlog(OSPid, io_lib:format("~s started", [Script])),
