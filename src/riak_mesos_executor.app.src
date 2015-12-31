@@ -11,7 +11,9 @@
                   inets,
                   crypto,
                   lager,
-                  clique
+                  clique,
+                  hackney,
+                  erlexec
                  ]},
   {mod, { riak_mesos_executor_app, []}},
   {env, []}

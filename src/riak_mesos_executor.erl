@@ -1,6 +1,6 @@
 -module(riak_mesos_executor).
 
-%-behaviour(executor).
+-behaviour(executor).
 -export([
          init/1,
          registered/4,
@@ -60,6 +60,7 @@ disconnected(#state{}=State) ->
 
 -spec launchTask(TaskInfo :: #'TaskInfo'{}, #state{}) -> {ok, #state{}}.
 launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
+    lager:info("launchTask: ~p~n", [TaskInfo]),
     #'TaskInfo'{
        name=_Name,
        task_id=TaskId, % NB: This is a #'TaskID'{}
@@ -77,7 +78,7 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     ok = riak_mesos_rnp:setup(TaskInfo), %% TODO do the do
     ok = riak_mesos_rnp:start(TaskId), %% TODO do the do
-    %% TODO Update the state
+    {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
     {ok, State}.
 
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.

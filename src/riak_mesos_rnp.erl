@@ -2,7 +2,6 @@
 
 -export([
          setup/1,
-         real_setup/1,
          start/1,
          stop/1,
          force_stop/1
@@ -41,9 +40,6 @@
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
-    lager:info("rme:setup: ~p~n", [TaskInfo]), ok.
-
-real_setup(#'TaskInfo'{}=TaskInfo) ->
     #'TaskInfo'{
        name=_Name,
        task_id=_TaskId, % NB: This is a #'TaskID'{}
@@ -64,31 +60,31 @@ real_setup(#'TaskInfo'{}=TaskInfo) ->
        name=_ExecName
       }=ExecInfo,
     #'CommandInfo'{
-       uris = [CmdURIRec],
-       shell = false,
+       uris = [_|_],
+       shell = _Shell,
        value = _Value, % "./executor_linux_amd64"
        arguments = _CmdArgs % ["./executor_linux_amd64", "-logtostderr=true", "-taskinfo riak-default-2"]
       }=CmdInfo,
-    #'CommandInfo.URI'{
-       value=_CmdURI, % "http://basho-rmf-sl02:31951/static/executor_linux_amd64"
-       executable=_Exec, % bool()
-       extract = _Extract % bool()
-      }=CmdURIRec,
+%    #'CommandInfo.URI'{
+%       value=_CmdURI, % "http://basho-rmf-sl02:31951/static/executor_linux_amd64"
+%       executable=_Exec, % bool()
+%       extract = _Extract % bool()
+%      }=CmdURIRec,
     TD = parse_taskdata(RawTData),
     %% TODO This desperately needs some TLC
     {struct, TDKV} = mochijson2:decode(RawTData),
     %{ok, MDMgr} = metadata_manager:new(TD#taskdata.framework_name,
     %                                   TD#taskdata.zookeepers),
-    ok = install("root", TD#taskdata.uri ++ "/static2/riak-bin.tar.gz"),
-    ok = configure("root/riak/etc/riak.conf",
+    % TODO: This location should come from the TaskInfo somehow
+    ok = configure("../root/riak/etc/riak.conf",
                    config_uri(TD, "/config"),
                    TDKV),
-    ok = configure("root/riak/etc/advanced.config",
+    ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, 0}]).
 
-start(#'TaskID'{}=TaskId) ->
-    lager:info("rme:start: ~p~n", [TaskId]),
+start(#'TaskID'{}=_TaskId) ->
+    start("../root/riak", "./bin/riak"),
     ok.
 
 stop(#'TaskInfo'{}=TaskInfo) ->
@@ -99,12 +95,12 @@ force_stop(#'TaskInfo'{}=TaskInfo) ->
     lager:info("rme:force_stop: ~p~n", [TaskInfo]),
     ok.
 
-install(Location, URI) ->
-    %% TODO Move this all into run_node_package
-    {ok, 200, _Hdrs, Resp} = hackney:get(URI, [], <<>>, []),
-    {ok, TGZ} = hackney:body(Resp), %% TODO Actually Resp is a ref but whatever
-    %% TODO Do we need to close the hackney client at all?
-    ok = erl_tar:extract({binary, TGZ}, [compressed, {cwd, Location}]).
+%install(Location, URI) ->
+%    %% TODO Move this all into run_node_package
+%    {ok, 200, _Hdrs, Resp} = hackney:get(URI, [], <<>>, []),
+%    {ok, TGZ} = hackney:body(Resp), %% TODO Actually Resp is a ref but whatever
+%    %% TODO Do we need to close the hackney client at all?
+%    ok = erl_tar:extract({binary, TGZ}, [compressed, {cwd, Location}]).
 
 %% TODO Ascertain scope for all of this:
 %%  - riak-mesos
@@ -123,16 +119,36 @@ install(Location, URI) ->
 configure(Location, ConfigURI, TD) ->
     {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
     {ok, ConfigTmpl} = hackney:body(Resp),
-    Rendered = mustache:render(binary_to_list(ConfigTmpl),
+    Template = binary_to_list(mustachify(ConfigTmpl)),
+    Rendered = mustache:render(Template,
                     dict:from_list(smooth_raw_taskdata(TD))),
     ok = file:write_file(Location, Rendered),
     ok.
 
 %% TODO This. Is. TYRANNY.
 %% mustache template variables have to:
-%%  - start lowercase
+%%  - start lowercase (i.e. not with a '.')
 %%  - be passed as atom keys
 %%  - be in a dict
+mustachify(Tmpl) ->
+    mustachify(match(Tmpl), Tmpl).
+
+mustachify(nomatch, Tmpl) -> Tmpl;
+mustachify({match, [{Start, Len}]}, Tmpl) ->
+    Key = binary:part(Tmpl, Start, Len),
+    %% TODO Mustache has a bug: if the template variable is immediately followed by a }
+    %% that } gets eaten.
+    %% i.e. { foobar, {{foobarbaz}}}
+    %% becomes { foobar, baz
+    %% not { foobar, baz}
+    NoDot = binary:replace(Key, <<"{{\.">>, <<" {{">>),
+    Space = binary:replace(NoDot, <<"}}">>, <<"}} ">>),
+    Lower = list_to_binary(string:to_lower(binary_to_list(Space))),
+    mustachify(binary:replace(Tmpl, Key, Lower)).
+    
+match(Tmpl) ->
+    re:run(Tmpl, << "{{\\.[^}]+}}" >>).
+
 smooth_raw_taskdata([]) -> [];
 smooth_raw_taskdata([{<<"Zookeepers">>, List} | Rest]) ->
     [ {zookeepers, [ binary_to_list(B) || B <- List]} | smooth_raw_taskdata(Rest) ];
@@ -151,32 +167,33 @@ smooth_raw_taskdata([{K,V} | Rest]) ->
 % - [ ] add `-no_epmd` flag
 % - [ ] write epmd port to ${kernel_dirs}/priv/cepmd_port
 
-%-spec log(stdout | stderr, integer(), binary()) -> ok.
-%log(stdout, OSPid, Message) ->
-%    lager:info(fmtlog(OSPid, Message));
-%log(stderr, OSPid, Message) ->
-%    lager:error(fmtlog(OSPid, Message)).
-%
-%fmtlog(OSPid, Message) ->
-%    io_lib:format("<~p> ~s", [OSPid, Message]).
-%
-%%% e.g. start("priv/riak-2.1.1/rel/riak", "bin/riak")
-%start(Location, Script) ->
-%    {ok, Pid, OSPid} = rnp_sup_bridge:start_link(
-%                         Script ++ " console -noinput",
-%                         [{cd, Location},
-%                          {stdout, fun log/3},
-%                          {stderr, fun log/3}]),
-%    fmtlog(OSPid, io_lib:format("~s started", [Script])),
-%    wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60).
-%
-%healthcheck(_, _) ->
-%    ok.
-%
-%wait_for_healthcheck(Pid, OSPid, _Healthcheck, _Timeout) ->
-%    %% TODO Healthcheck needs to take a Timeout and bail early if necessary
-%    %% TODO Return a #'TaskInfo'{} probably
-%    {ok, Pid, OSPid}.
+-spec log(stdout | stderr, integer(), binary()) -> ok.
+log(stdout, OSPid, Message) ->
+    lager:info(fmtlog(OSPid, Message));
+log(stderr, OSPid, Message) ->
+    lager:error(fmtlog(OSPid, Message)).
+
+fmtlog(OSPid, Message) ->
+    io_lib:format("<~p> ~s", [OSPid, Message]).
+
+%% e.g. start("priv/riak-2.1.1/rel/riak", "bin/riak")
+start(Location, Script) ->
+    {ok, Pid, OSPid} = rnp_sup_bridge:start_link(
+                         Script ++ " console -noinput, -no_epmd -user riak",
+                         [{cd, Location},
+                          verbose, debug,
+                          {stdout, fun log/3},
+                          {stderr, fun log/3}]),
+    fmtlog(OSPid, io_lib:format("~s started", [Script])),
+    wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60).
+
+healthcheck(_, _) ->
+    ok.
+
+wait_for_healthcheck(Pid, OSPid, _Healthcheck, _Timeout) ->
+    %% TODO Healthcheck needs to take a Timeout and bail early if necessary
+    %% TODO Return a #'TaskInfo'{} probably
+    {ok, Pid, OSPid}.
 %% - [ ] try starting, 60s to pass healthcheck
 %% - [ ] return task status to Scheduler: TASK_RUNNING or TASK_FAILED
 
