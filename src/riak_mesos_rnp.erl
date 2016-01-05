@@ -24,6 +24,13 @@
          disterl_port     :: non_neg_integer()
         }).
 
+-record(state,
+        {
+         ports = [],
+         cepmd_port = 0,
+         md_mgr :: port()
+        }).
+
 %% TaskInfo.Data looks like this:
 %% {
 %%   FullyQualifiedNodeName:riak-default-3@208.43.239.82
@@ -58,15 +65,17 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     TD = parse_taskdata(RawTData),
     %% TODO This desperately needs some TLC
     {struct, TDKV} = mochijson2:decode(RawTData),
-    %{ok, MDMgr} = metadata_manager:new(TD#taskdata.framework_name,
-    %                                   TD#taskdata.zookeepers),
+    {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
+                                       TD#taskdata.framework_name),
     % TODO: This location should come from the TaskInfo somehow
+    % Probably from one of the #'Resource' records?
     ok = configure("../root/riak/etc/riak.conf",
                    config_uri(TD, "/config"),
                    TDKV),
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
-                   [{cepmdport, 0}]).
+                   [{cepmdport, State0#state.cepmd_port}]),
+    {ok, State0#state{md_mgr=MDMgr}}.
 
 process_resources(Rs) -> process_resources(Rs, #state{}).
 process_resources([], #state{}=State) -> State ;
@@ -77,12 +86,21 @@ process_resources([#'Resource'{name="ports", type='RANGES', ranges=#'Value.Range
 process_resources([_ | Rs], #state{}=State) ->
     process_resources(Rs, State).
 
-start(#'TaskID'{}=_TaskId) ->
-    start("../root/riak", "./bin/riak"),
-    ok.
+start(#state{}=State) ->
+    #state{cepmd_port=Port} = State,
+    % Start CEPMD
+    lager:info("Starting CEPMD on port ~p~n", [Port]),
+    _  = riak_mesos_executor_sup:start_cmd("../",
+                                          "cepmd_linux_amd64",
+                                          "-name=riak"
+                                              " -zk=master.mesos:2181"
+                                              " -riak_lib_dir=root/riak/lib"
+                                              " -port="++integer_to_list(Port),
+                                          []), ok.
+    %, start("../root/riak", "./bin/riak").
 
-stop(#'TaskInfo'{}=TaskInfo) ->
-    lager:info("rme:stop: ~p~n", [TaskInfo]),
+stop(#state{}=St) ->
+    lager:info("rme:stop: ~p~n", [St]),
     ok.
 
 force_stop(#'TaskInfo'{}=TaskInfo) ->
