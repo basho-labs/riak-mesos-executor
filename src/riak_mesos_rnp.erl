@@ -42,35 +42,19 @@
 setup(#'TaskInfo'{}=TaskInfo) ->
     lager:info("TaskInfo: ~n~p~n", [TaskInfo]),
     #'TaskInfo'{
-       name=_Name,
-       task_id=_TaskId, % NB: This is a #'TaskID'{}
-       slave_id=_SlaveId,
-       resources=_,
+       resources=Resources,
        executor=ExecInfo,
-       command=_,
-       container=_,
-       data=RawTData, % TODO Is this a json binary string?
-       health_check=_,
-       labels=_,
-       discovery=_
+       data=RawTData % TODO Is this a json binary string?
       }=TaskInfo,
     #'ExecutorInfo'{
        source="riak", %% TODO Is this really a string?
-       executor_id=_ExecID,
-       command=CmdInfo,
-       name=_ExecName
+       command=CmdInfo
       }=ExecInfo,
     #'CommandInfo'{
-       uris = [_|_],
-       shell = _Shell,
-       value = _Value, % "./executor_linux_amd64"
-       arguments = _CmdArgs % ["./executor_linux_amd64", "-logtostderr=true", "-taskinfo riak-default-2"]
+       shell = _Shell
       }=CmdInfo,
-%    #'CommandInfo.URI'{
-%       value=_CmdURI, % "http://basho-rmf-sl02:31951/static/executor_linux_amd64"
-%       executable=_Exec, % bool()
-%       extract = _Extract % bool()
-%      }=CmdURIRec,
+    lager:info("CommandInfo.shell: ~p~n", [_Shell]),
+    State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     %% TODO This desperately needs some TLC
     {struct, TDKV} = mochijson2:decode(RawTData),
@@ -83,6 +67,15 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, 0}]).
+
+process_resources(Rs) -> process_resources(Rs, #state{}).
+process_resources([], #state{}=State) -> State ;
+process_resources([#'Resource'{name="ports", type='RANGES', ranges=#'Value.Ranges'{range=Ranges}} | Rs], #state{}=State) ->
+    Ports = lists:flatten([ lists:seq(R#'Value.Range'.'begin', R#'Value.Range'.'end') || R <- Ranges ]),
+    [ CEPMDPort | Ps ] = Ports, % TODO We can probably just pre-assign all the ports we need here
+    process_resources(Rs, State#state{cepmd_port=CEPMDPort, ports=Ps});
+process_resources([_ | Rs], #state{}=State) ->
+    process_resources(Rs, State).
 
 start(#'TaskID'{}=_TaskId) ->
     start("../root/riak", "./bin/riak"),
