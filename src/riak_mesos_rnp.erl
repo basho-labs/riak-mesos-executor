@@ -189,7 +189,10 @@ parse_taskdata(JSON) when is_binary(JSON) ->
     {struct, Data} = mochijson2:decode(JSON),
     #taskdata{
        node_name        = binary_to_list(proplists:get_value(<<"FullyQualifiedNodeName">>, Data)),
-       zookeepers       = [ binary_to_list(B) || B <- proplists:get_value(<<"Zookeepers">>, Data)],
+       zookeepers       = [ begin
+                                [Host, Port] = string:tokens(binary_to_list(B), ":"),
+                                {Host, erlang:list_to_integer(Port)}
+                            end || B <- proplists:get_value(<<"Zookeepers">>, Data)],
        framework_name   = binary_to_list(proplists:get_value(<<"FrameworkName">>, Data)),
        cluster_name     = binary_to_list(proplists:get_value(<<"ClusterName">>, Data)),
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
