@@ -22,7 +22,7 @@
 -behaviour(supervisor).
 -export([start_link/0]).
 -export([start_cmd/3]).
--export([start_cmd/4]).
+-export([start_cmd/2]).
 -export([init/1]).
 -export([log/3]).
 
@@ -38,21 +38,28 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
+    %Exec = {exec, {exec, start_link, [[yolo, {debug, 5}]]}, permanent, 10000, worker, [exec]},
     Exec = {exec, {exec, start_link, [[verbose, {debug, 9}]]}, permanent, 10000, worker, [exec]},
     Mod = riak_mesos_executor,
     Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
     {ok, { {one_for_one, 5, 10}, [Exec, Executor]} }.
 
-start_cmd(Location, Exe, Args, Opts) ->
-    start_cmd(Exe, Args, [{cd, Location} | Opts]).
-start_cmd(Exe, Args, Opts0) ->
+start_cmd(Location, Exe, Opts) ->
+    start_cmd(Exe, [{cd, Location} | Opts]).
+start_cmd(Exe, Opts0) ->
+    %% TODO This is probably asking for trouble, but....
+    ChildId =
+        case Exe of
+            % List of lists i.e. strings
+            [[_|_]=Exe0 | _Args] -> {rnpsb, Exe0};
+            [_|_] -> {rnpsb, Exe}
+        end,
     %% TODO Hopefully we can rid ourselves of this eventually..
-    Opts1 = [{executable, "/bin/sh"} | Opts0],
-    Opts = ensure_loggers(Opts1),
-    lager:info("Starting command [~s] ~s ~s", [proplists:get_value(cd, Opts), Exe, Args]),
+    Opts = ensure_loggers(Opts0),
+    lager:info("Starting command [~s] ~s ~s", [proplists:get_value(cd, Opts), Exe]),
     supervisor:start_child(
       ?MODULE,
-      {{rnpsb, Exe}, {rnp_sup_bridge, start_link, [Exe ++ Args, Opts]},
+      {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]},
        permanent, 300, supervisor, dynamic}).
 
 % Make sure there's a logging fun for both stdout and stderr

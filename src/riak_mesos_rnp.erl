@@ -90,12 +90,12 @@ start(#state{}=State) ->
     #state{cepmd_port=Port} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~p~n", [Port]),
-    _  = riak_mesos_executor_sup:start_cmd("../",
-                                          "cepmd_linux_amd64",
-                                          "-name=riak"
-                                              " -zk=master.mesos:2181"
-                                              " -riak_lib_dir=root/riak/lib"
-                                              " -port="++integer_to_list(Port),
+    Ret  = riak_mesos_executor_sup:start_cmd("../",
+                                          ["cepmd_linux_amd64",
+                                          "-name=riak",
+                                              " -zk=master.mesos:2181",
+                                              " -riak_lib_dir=root/riak/lib",
+                                              " -port="++integer_to_list(Port)],
                                           []), ok.
     %, start("../root/riak", "./bin/riak").
 
