@@ -134,6 +134,10 @@ configure(Location, ConfigURI, TD) ->
 mustachify(Tmpl) ->
     mustachify(match(Tmpl), Tmpl).
 
+match(Tmpl) ->
+    re:run(Tmpl, << "{{\\.[^}]+}}" >>).
+
+%% TODO This might be removable if we change the templates in the golang scheduler
 mustachify(nomatch, Tmpl) -> Tmpl;
 mustachify({match, [{Start, Len}]}, Tmpl) ->
     Key = binary:part(Tmpl, Start, Len),
@@ -142,13 +146,11 @@ mustachify({match, [{Start, Len}]}, Tmpl) ->
     %% i.e. { foobar, {{foobarbaz}}}
     %% becomes { foobar, baz
     %% not { foobar, baz}
-    NoDot = binary:replace(Key, <<"{{\.">>, <<" {{">>),
-    Space = binary:replace(NoDot, <<"}}">>, <<"}} ">>),
-    Lower = list_to_binary(string:to_lower(binary_to_list(Space))),
+    NoDot = binary:replace(Key, <<"{{\.">>, <<"{{">>),
+    Space0 = binary:replace(NoDot, <<"{{{">>, <<"{ {{">>),
+    Space1 = binary:replace(Space0, <<"}}}">>, <<"}} }">>),
+    Lower = list_to_binary(string:to_lower(binary_to_list(Space1))),
     mustachify(binary:replace(Tmpl, Key, Lower)).
-    
-match(Tmpl) ->
-    re:run(Tmpl, << "{{\\.[^}]+}}" >>).
 
 smooth_raw_taskdata([]) -> [];
 smooth_raw_taskdata([{<<"Zookeepers">>, List} | Rest]) ->
