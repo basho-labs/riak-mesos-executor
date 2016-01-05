@@ -13,7 +13,7 @@
                   lager,
                   clique,
                   hackney,
-                  erlexec
+                  erlzk
                  ]},
   {mod, { riak_mesos_executor_app, []}},
   {env, []}
