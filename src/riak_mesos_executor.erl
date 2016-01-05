@@ -21,7 +21,8 @@
          riak_node,
          exec_info,
          framework_info,
-         slave_info
+         slave_info,
+         rnp_state
         }).
 
 start_link() ->
