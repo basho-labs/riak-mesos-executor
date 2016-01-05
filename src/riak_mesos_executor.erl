@@ -77,18 +77,18 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
       }=TaskInfo,
     TaskStatus = #'TaskStatus'{ task_id=TaskId, state='TASK_STARTING' },
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
-    ok = riak_mesos_rnp:setup(TaskInfo), %% TODO do the do
-    ok = riak_mesos_rnp:start(TaskId), %% TODO do the do
+    {ok, RNPSt0} = riak_mesos_rnp:setup(TaskInfo),
+    ok = riak_mesos_rnp:start(RNPSt0), %% TODO Update state here
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
-    {ok, State}.
+    {ok, State#state{rnp_state=RNPSt0}}.
 
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.
-killTask(#'TaskID'{}, #state{}=State) ->
+killTask(#'TaskID'{}=TaskId, #state{rnp_state=RNPSt0}=State) ->
     %% TODO A dilemma: do we send the status update first, then kill it?
     %% Or do we kill it, then send the status update.
-    TaskStatus = #'TaskStatus'{state='TASK_KILLED'}, %% TODO Obvs there needs to be more data here
+    TaskStatus = #'TaskStatus'{task_id=TaskId, state='TASK_KILLED'}, %% TODO Obvs there needs to be more data here
     executor:sendStatusUpdate(TaskStatus),
-    riak_mesos_rnp:stop(),
+    riak_mesos_rnp:stop(RNPSt0),
     %% TODO Update the state
     {ok, State}.
 
