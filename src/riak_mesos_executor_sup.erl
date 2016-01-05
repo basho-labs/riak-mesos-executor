@@ -21,7 +21,10 @@
 -module(riak_mesos_executor_sup).
 -behaviour(supervisor).
 -export([start_link/0]).
+-export([start_cmd/3]).
+-export([start_cmd/4]).
 -export([init/1]).
+-export([log/3]).
 
 %% ===================================================================
 %% API
@@ -35,7 +38,40 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    %% Executor = {...}
+    Exec = {exec, {exec, start_link, [[verbose, {debug, 9}]]}, permanent, 10000, worker, [exec]},
     Mod = riak_mesos_executor,
     Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
-    {ok, { {one_for_one, 5, 10}, [Executor]} }.
+    {ok, { {one_for_one, 5, 10}, [Exec, Executor]} }.
+
+start_cmd(Location, Exe, Args, Opts) ->
+    start_cmd(Exe, Args, [{cd, Location} | Opts]).
+start_cmd(Exe, Args, Opts0) ->
+    %% TODO Hopefully we can rid ourselves of this eventually..
+    Opts1 = [{executable, "/bin/sh"} | Opts0],
+    Opts = ensure_loggers(Opts1),
+    lager:info("Starting command [~s] ~s ~s", [proplists:get_value(cd, Opts), Exe, Args]),
+    supervisor:start_child(
+      ?MODULE,
+      {{rnpsb, Exe}, {rnp_sup_bridge, start_link, [Exe ++ Args, Opts]},
+       permanent, 300, supervisor, dynamic}).
+
+% Make sure there's a logging fun for both stdout and stderr
+% Otherwise erlexec uses something nonsensical
+ensure_loggers(Opts) ->
+    ensure_logger(stdout, ensure_logger(stderr, Opts)).
+ensure_logger(Type, Opts) ->
+    case proplists:lookup(Type, Opts) of
+        none -> [{Type, fun ?MODULE:log/3} | Opts];
+        _ -> Opts
+    end.
+
+-spec log(stdout | stderr, integer(), binary()) -> ok.
+log(stdout, OSPid, Message) ->
+    lager:info(fmtlog(OSPid, Message));
+log(stderr, OSPid, Message) ->
+    lager:error(fmtlog(OSPid, Message));
+log(Eh, OSPid, Message) ->
+    lager:info("[~s] ~s", [Eh, fmtlog(OSPid, Message)]).
+
+fmtlog(OSPid, Message) ->
+    io_lib:format("<~p> ~s", [OSPid, Message]).
