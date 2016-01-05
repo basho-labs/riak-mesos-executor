@@ -180,36 +180,6 @@ smooth_raw_taskdata([{K,V} | Rest]) ->
 % - [ ] install cepmd into kernel dirs(?) 'root/riak/lib/kernel*'
 % - [ ] add `-no_epmd` flag
 % - [ ] write epmd port to ${kernel_dirs}/priv/cepmd_port
-
--spec log(stdout | stderr, integer(), binary()) -> ok.
-log(stdout, OSPid, Message) ->
-    lager:info(fmtlog(OSPid, Message));
-log(stderr, OSPid, Message) ->
-    lager:error(fmtlog(OSPid, Message)).
-
-fmtlog(OSPid, Message) ->
-    io_lib:format("<~p> ~s", [OSPid, Message]).
-
-%% e.g. start("priv/riak-2.1.1/rel/riak", "bin/riak")
-start(Location, Script) ->
-    {ok, Pid, OSPid} = rnp_sup_bridge:start_link(
-                         Script ++ " console -noinput, -no_epmd",
-                         [{cd, Location},
-                          {stdout, fun log/3},
-                          {stderr, fun log/3}]),
-    fmtlog(OSPid, io_lib:format("~s started", [Script])),
-    wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60).
-
-healthcheck(_, _) ->
-    ok.
-
-wait_for_healthcheck(Pid, OSPid, _Healthcheck, _Timeout) ->
-    %% TODO Healthcheck needs to take a Timeout and bail early if necessary
-    %% TODO Return a #'TaskInfo'{} probably
-    {ok, Pid, OSPid}.
-%% - [ ] try starting, 60s to pass healthcheck
-%% - [ ] return task status to Scheduler: TASK_RUNNING or TASK_FAILED
-
 -spec config_uri(#taskdata{}, string()) -> string().
 config_uri(#taskdata{uri=URI, cluster_name=Cluster}, Path) ->
     URI ++ "/api/v1/clusters/" ++ Cluster ++  Path.
