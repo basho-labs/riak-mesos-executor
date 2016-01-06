@@ -6,14 +6,18 @@ main() {
     [ -d "riak_mesos_executor" ] || exit
     echo "Checking for riak_mesos_executor executable"
     [ -x "riak_mesos_executor/bin/riak_mesos_executor" ] || exit
+    echo "Checking for required mesos env vars"
+    [ ! -z "$MESOS_EXECUTOR_ID" ] || exit
     echo "Checking if HOME is set..."
     if [ -z "$HOME" ]; then
-        echo "Setting HOME to $PWD"...
-        export HOME="$PWD"
+        export HOME=`eval echo "~$WHOAMI"`
     fi
+    NODENAME="$MESOS_EXECUTOR_ID"
+    echo "Updating nodename to $NODENAME"
+    sed -i"" -e "/nodename/s/= .*@/= ${NODENAME}@/" riak_mesos_executor/etc/riak_mesos_executor.conf
 
     echo "Starting riak_mesos_executor..."
-    riak_mesos_executor/bin/riak_mesos_executor console -noinput
+    riak_mesos_executor/bin/riak_mesos_executor console -noinput #-no_epmd
 }
 
 main "$@"
