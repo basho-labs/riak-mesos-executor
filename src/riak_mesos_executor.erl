@@ -22,6 +22,7 @@
          exec_info,
          framework_info,
          slave_info,
+         task_status,
          rnp_state
         }).
 
@@ -61,54 +62,44 @@ disconnected(#state{}=State) ->
 
 -spec launchTask(TaskInfo :: #'TaskInfo'{}, #state{}) -> {ok, #state{}}.
 launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
-    lager:info("launchTask: ~p~n", [TaskInfo]),
-    #'TaskInfo'{
-       name=_Name,
-       task_id=TaskId, % NB: This is a #'TaskID'{}
-       slave_id=_SlaveId,
-       resources=_,
-       executor=_,
-       command=_,
-       container=_,
-       data=_,
-       health_check=_,
-       labels=_,
-       discovery=_
-      }=TaskInfo,
+    lager:debug("launchTask: ~p~n", [TaskInfo]),
+    #'TaskInfo'{ task_id=TaskId }=TaskInfo,
     TaskStatus = #'TaskStatus'{ task_id=TaskId, state='TASK_STARTING' },
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, RNPSetup} = riak_mesos_rnp:setup(TaskInfo),
-    RNPStarted = riak_mesos_rnp:start(RNPSetup), %% TODO Update state here
+    %% TODO Make this {ok, RNPStarted}
+    RNPStarted = riak_mesos_rnp:start(RNPSetup),
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
-    {ok, State#state{rnp_state=RNPStarted}}.
+    {ok, State#state{task_status=TaskStatus, rnp_state=RNPStarted}}.
 
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.
-killTask(#'TaskID'{}=TaskId, #state{rnp_state=RNPSt0}=State) ->
-    %% TODO A dilemma: do we send the status update first, then kill it?
-    %% Or do we kill it, then send the status update.
-    TaskStatus = #'TaskStatus'{task_id=TaskId, state='TASK_KILLED'}, %% TODO Obvs there needs to be more data here
-    executor:sendStatusUpdate(TaskStatus),
-    riak_mesos_rnp:stop(RNPSt0),
-    %% TODO Update the state
-    {ok, State}.
+killTask(#'TaskID'{}=TaskId, #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
+    lager:debug("Killing task: ~p~n", [TaskId]),
+    ok = riak_mesos_rnp:stop(RNPSt0),
+    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
+    {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
+    {ok, State#state{task_status=TaskStatus}}.
 
 -spec frameworkMessage(Message :: string(), #state{}) -> {ok, #state{}}.
-frameworkMessage("finish", #state{}=State) ->
-    lager:info("Force finishing riak node"),
-    riak_mesos_rnp:force_stop(),
-    %% TODO Update state
-    {ok, State};
+frameworkMessage("finish", #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
+    lager:debug("Force finishing riak node"),
+    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
+    ok = riak_mesos_rnp:force_stop(RNPSt0),
+    {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
+    {ok, State#state{task_status=TaskStatus, rnp_state=undefined}};
 frameworkMessage(Message, #state{}=State) ->
     lager:debug("Got framework message: ~s~n", [Message]),
     {ok, State}.
 
 -spec shutdown(#state{}) -> {ok, #state{}}.
-shutdown(#state{}=State) ->
+shutdown(#state{task_status=TaskStatus0}=State) ->
     lager:info("Shutting down the executor"),
+    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
     riak_mesos_rnp:stop(),
     %% Remember: the behaviour takes care of stopping the process appropriately
     %% not us.
-    {ok, State}.
+    {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
+    {ok, State#state{task_status=TaskStatus}}.
 
 -spec error(Message :: string(), #state{}) -> {ok, #state{}}.
 error(Message, #state{}=State) ->

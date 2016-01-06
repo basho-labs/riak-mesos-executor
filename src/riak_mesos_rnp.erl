@@ -117,10 +117,11 @@ start(#state{}=State) ->
     %% TODO This whole process management needs ironing out
     case Ret of
         {ok, Pid} ->
-            _State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
+            State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             OSPid = rnp_sup_bridge:os_pid(Pid),
             fmtlog(OSPid, io_lib:format("~s started", [Script])),
-            wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60);
+            {ok,_,_} = wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60),
+            State2;
         _Other ->
             lager:error("start_cmd returned: ~p~n", [Ret])
     end.
@@ -143,8 +144,12 @@ stop(#state{}=St) ->
     lager:info("rme:stop: ~p~n", [St]),
     ok.
 
-force_stop(#'TaskInfo'{}=TaskInfo) ->
-    lager:info("rme:force_stop: ~p~n", [TaskInfo]),
+force_stop(#state{}=St) ->
+    #state{exes=Exes}=St,
+    [ begin
+          Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
+          lager:debug("terminate ret: ~p", [Ret])
+    end || {ok, E, _} <- Exes ],
     ok.
 
 %install(Location, URI) ->
