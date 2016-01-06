@@ -28,6 +28,7 @@
         {
          ports = [],
          cepmd_port = 0,
+         exes = [],
          md_mgr :: port()
         }).
 
@@ -63,7 +64,9 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     lager:info("CommandInfo.shell: ~p~n", [_Shell]),
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
-    %% TODO This desperately needs some TLC
+    #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
+    State2 = State1#state{cepmd_port=CEPMDPort, ports=Ps},
+    %% TODO There are cleaner ways to wrangle JSON in erlang
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
                                        TD#taskdata.framework_name),
@@ -74,30 +77,67 @@ setup(#'TaskInfo'{}=TaskInfo) ->
                    TDKV),
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
-                   [{cepmdport, State0#state.cepmd_port}]),
-    {ok, State0#state{md_mgr=MDMgr}}.
+                   [{cepmdport, State2#state.cepmd_port}]),
+    {ok, State2#state{md_mgr=MDMgr}}.
+
+filter_ports(#taskdata{}=TD, #state{}=State0) ->
+    #state{ports=Ps}=State0,
+    Preallocated = [TD#taskdata.http_port, TD#taskdata.pb_port, TD#taskdata.handoff_port, TD#taskdata.disterl_port],
+    Filtered = Ps -- Preallocated,
+    State0#state{ports=Filtered}.
 
 process_resources(Rs) -> process_resources(Rs, #state{}).
 process_resources([], #state{}=State) -> State ;
 process_resources([#'Resource'{name="ports", type='RANGES', ranges=#'Value.Ranges'{range=Ranges}} | Rs], #state{}=State) ->
     Ports = lists:flatten([ lists:seq(R#'Value.Range'.'begin', R#'Value.Range'.'end') || R <- Ranges ]),
-    [ CEPMDPort | Ps ] = Ports, % TODO We can probably just pre-assign all the ports we need here
-    process_resources(Rs, State#state{cepmd_port=CEPMDPort, ports=Ps});
+    % TODO We can probably just pre-assign all the ports we need here
+    process_resources(Rs, State#state{ports=Ports});
 process_resources([_ | Rs], #state{}=State) ->
     process_resources(Rs, State).
 
+%take_port(#state{ports=[P|Ps]}=State) ->
+%    {P, State#state{ports=Ps}}.
+
 start(#state{}=State) ->
-    #state{cepmd_port=Port} = State,
+    #state{cepmd_port=Port, exes=Exes} = State,
     % Start CEPMD
-    lager:info("Starting CEPMD on port ~p~n", [Port]),
-    Ret  = riak_mesos_executor_sup:start_cmd("../",
+    lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
+    {ok, CEPMD} = riak_mesos_executor_sup:start_cmd("../",
                                           ["cepmd_linux_amd64",
                                           "-name=riak",
-                                              " -zk=master.mesos:2181",
-                                              " -riak_lib_dir=root/riak/lib",
-                                              " -port="++integer_to_list(Port)],
-                                          []), ok.
-    %, start("../root/riak", "./bin/riak").
+                                              "-zk=master.mesos:2181",
+                                              "-riak_lib_dir=root/riak/lib",
+                                              "-port="++integer_to_list(Port)],
+                                          []),
+    State1 = State#state{exes=[CEPMD | Exes]},
+    %% TODO These should be coming from TaskInfo
+    Location = "../root/riak",
+    Script = "bin/riak",
+    Ret = riak_mesos_executor_sup:start_cmd(Location, [Script, "console", "-noinput", "-no_epmd"], []),
+    %% TODO This whole process management needs ironing out
+    case Ret of
+        {ok, Pid} ->
+            _State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
+            OSPid = rnp_sup_bridge:os_pid(Pid),
+            fmtlog(OSPid, io_lib:format("~s started", [Script])),
+            wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60);
+        _Other ->
+            lager:error("start_cmd returned: ~p~n", [Ret])
+    end.
+
+fmtlog(OSPid, Message) ->
+    io_lib:format("<~p> ~s", [OSPid, Message]).
+
+%% TODO healthcheck is an exercise left for the reader.
+healthcheck(_, _) ->
+    ok.
+
+wait_for_healthcheck(Pid, OSPid, _Healthcheck, _Timeout) ->
+    %% TODO Healthcheck needs to take a Timeout and bail early if necessary
+    %% TODO Return a #'TaskInfo'{} probably
+    {ok, Pid, OSPid}.
+% - [ ] try starting, 60s to pass healthcheck
+% - [ ] return task status to Scheduler: TASK_RUNNING or TASK_FAILED
 
 stop(#state{}=St) ->
     lager:info("rme:stop: ~p~n", [St]),
@@ -174,12 +214,6 @@ smooth_raw_taskdata([{ K, V } | Rest ]) when is_binary(K) ->
 smooth_raw_taskdata([{K,V} | Rest]) ->
     [{K, V} | smooth_raw_taskdata(Rest)].
 
-% Current implementation follows approximately the following:
-% TODO CEPMD
-% - [ ] start cepmd based on metadataManager config?
-% - [ ] install cepmd into kernel dirs(?) 'root/riak/lib/kernel*'
-% - [ ] add `-no_epmd` flag
-% - [ ] write epmd port to ${kernel_dirs}/priv/cepmd_port
 -spec config_uri(#taskdata{}, string()) -> string().
 config_uri(#taskdata{uri=URI, cluster_name=Cluster}, Path) ->
     URI ++ "/api/v1/clusters/" ++ Cluster ++  Path.
