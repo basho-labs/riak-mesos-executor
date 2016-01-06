@@ -77,10 +77,10 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
       }=TaskInfo,
     TaskStatus = #'TaskStatus'{ task_id=TaskId, state='TASK_STARTING' },
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
-    {ok, RNPSt0} = riak_mesos_rnp:setup(TaskInfo),
-    ok = riak_mesos_rnp:start(RNPSt0), %% TODO Update state here
+    {ok, RNPSetup} = riak_mesos_rnp:setup(TaskInfo),
+    RNPStarted = riak_mesos_rnp:start(RNPSetup), %% TODO Update state here
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
-    {ok, State#state{rnp_state=RNPSt0}}.
+    {ok, State#state{rnp_state=RNPStarted}}.
 
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.
 killTask(#'TaskID'{}=TaskId, #state{rnp_state=RNPSt0}=State) ->
