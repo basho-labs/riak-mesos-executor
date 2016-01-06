@@ -38,8 +38,7 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    %Exec = {exec, {exec, start_link, [[yolo, {debug, 5}]]}, permanent, 10000, worker, [exec]},
-    Exec = {exec, {exec, start_link, [[verbose, {debug, 9}]]}, permanent, 10000, worker, [exec]},
+    Exec = {exec, {exec, start_link, [[]]}, permanent, 10000, worker, [exec]},
     Mod = riak_mesos_executor,
     Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
     {ok, { {one_for_one, 5, 10}, [Exec, Executor]} }.
@@ -56,7 +55,6 @@ start_cmd(Exe, Opts0) ->
         end,
     %% TODO Hopefully we can rid ourselves of this eventually..
     Opts = ensure_loggers(Opts0),
-    lager:info("Starting command [~s] ~s ~s", [proplists:get_value(cd, Opts), Exe]),
     supervisor:start_child(
       ?MODULE,
       {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]},
