@@ -92,10 +92,10 @@ frameworkMessage(Message, #state{}=State) ->
     {ok, State}.
 
 -spec shutdown(#state{}) -> {ok, #state{}}.
-shutdown(#state{task_status=TaskStatus0}=State) ->
+shutdown(#state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
     lager:info("Shutting down the executor"),
     TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
-    riak_mesos_rnp:stop(),
+    ok = riak_mesos_rnp:stop(RNPSt0),
     %% Remember: the behaviour takes care of stopping the process appropriately
     %% not us.
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
