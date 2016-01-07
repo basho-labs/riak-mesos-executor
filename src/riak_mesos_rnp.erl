@@ -48,11 +48,11 @@
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
-    lager:info("TaskInfo: ~n~p~n", [TaskInfo]),
+    lager:debug("TaskInfo: ~n~p~n", [TaskInfo]),
     #'TaskInfo'{
        resources=Resources,
        executor=ExecInfo,
-       data=RawTData % TODO Is this a json binary string?
+       data=RawTData
       }=TaskInfo,
     #'ExecutorInfo'{
        source="riak", %% TODO Is this really a string?
@@ -61,7 +61,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     #'CommandInfo'{
        shell = _Shell
       }=CmdInfo,
-    lager:info("CommandInfo.shell: ~p~n", [_Shell]),
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
@@ -104,7 +103,7 @@ start(#state{}=State) ->
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, CEPMD} = riak_mesos_executor_sup:start_cmd("../",
                                           ["cepmd_linux_amd64",
-                                          "-name=riak",
+                                              "-name=riak",
                                               "-zk=master.mesos:2181",
                                               "-riak_lib_dir=root/riak/lib",
                                               "-port="++integer_to_list(Port)],
@@ -148,6 +147,7 @@ force_stop(#state{}=St) ->
     #state{exes=Exes}=St,
     [ begin
           Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
+          %% TODO supervisor:delete_child/2
           lager:debug("terminate ret: ~p", [Ret])
     end || {ok, E, _} <- Exes ],
     ok.
@@ -242,4 +242,3 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        handoff_port     = proplists:get_value(<<"HandoffPort">>, Data),
        disterl_port     = proplists:get_value(<<"DisterlPort">>, Data)
       }.
-
