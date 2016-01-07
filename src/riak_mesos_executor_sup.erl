@@ -58,7 +58,7 @@ start_cmd(Exe, Opts0) ->
     supervisor:start_child(
       ?MODULE,
       {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]},
-       permanent, 300, supervisor, dynamic}).
+       transient, 300, supervisor, dynamic}).
 
 % Make sure there's a logging fun for both stdout and stderr
 % Otherwise erlexec uses something nonsensical
