@@ -118,15 +118,11 @@ start(#state{}=State) ->
         {ok, Pid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             OSPid = rnp_sup_bridge:os_pid(Pid),
-            fmtlog(OSPid, io_lib:format("~s started", [Script])),
             {ok,_,_} = wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60),
             State2;
         _Other ->
             lager:error("start_cmd returned: ~p~n", [Ret])
     end.
-
-fmtlog(OSPid, Message) ->
-    io_lib:format("<~p> ~s", [OSPid, Message]).
 
 %% TODO healthcheck is an exercise left for the reader.
 healthcheck(_, _) ->
