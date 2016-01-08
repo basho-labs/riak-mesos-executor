@@ -1,0 +1,20 @@
+%% -*- erlang -*-
+{application, riak_mesos_executor,
+ [
+  {description, ""},
+  {vsn, git},
+  {registered, []},
+  {modules, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  inets,
+                  crypto,
+                  lager,
+                  clique,
+                  hackney,
+                  erlzk
+                 ]},
+  {mod, { riak_mesos_executor_app, []}},
+  {env, []}
+ ]}.
