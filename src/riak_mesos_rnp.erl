@@ -117,23 +117,75 @@ start(#state{}=State) ->
     case Ret of
         {ok, Pid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
-            OSPid = rnp_sup_bridge:os_pid(Pid),
-            {ok,_,_} = wait_for_healthcheck(Pid, OSPid, fun healthcheck/2, 60),
-            State2;
+            %% TODO These arguments are practical but they make little sense.
+            case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
+                ok -> {ok, State2};
+                %% TODO Need to shut it all down here
+                %% TODO Perhaps return some other state?
+                {error, _}=Err -> Err
+            end;
         _Other ->
             lager:error("start_cmd returned: ~p~n", [Ret])
     end.
 
 %% TODO healthcheck is an exercise left for the reader.
-healthcheck(_, _) ->
-    ok.
+healthcheck(Dir) ->
+    %% TODO Rid ourselves of special snowflakes
+    Logfile = filename:join([Dir, "log", "console.log"]),
+    %Admin = filename:join([Dir, "bin", "riak-admin"]),
+    log_exists(Logfile)
+        andalso log_contains(Logfile, <<"Wait complete for service riak_kv">>).
+        %andalso services_available(Admin).
 
-wait_for_healthcheck(Pid, OSPid, _Healthcheck, _Timeout) ->
-    %% TODO Healthcheck needs to take a Timeout and bail early if necessary
+log_exists(Logfile) ->
+    filelib:is_file(Logfile).
+
+%% TODO This seems like a Bad Idea™ since this process sticks around for quite some time
+log_contains(File, Pattern) ->
+    {ok, Bytes} = file:read_file(File),
+    case binary:match(Bytes, Pattern) of
+        nomatch -> false;
+        {_,_} -> true
+    end.
+%% TODO riak-admin provides a 'wait-for-service <service> [<node>]' command
+%% maybe we can reuse that?
+%services_available(Admin) ->
+%    filelib:is_file(Admin) andalso
+%        "[riak_kv,riak_pipe]" ==
+%            string:strip(os:cmd(Admin++" services | grep -o '\\[[^]]*\\]'"), both, $\n).
+
+poll({Fun, Args}, Ref, Interval, Timeout) ->
+    case Fun(Args) of
+        true -> true;
+        false ->
+            erlang:send_after(Interval, self(), {Ref, interval}),
+            receive
+                {Ref, timeout} -> false;
+                {Ref, interval} ->
+                    poll({Fun, Args}, Ref, Interval, Timeout)
+            after
+                Timeout -> false
+            end
+    end.
+
+
+wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
+    when is_function(Healthcheck, 1) ->
+    Interval = 500,
+    Ref = erlang:make_ref(),
+    Me  = self(),
+    TRef = erlang:send_after(Timeout, Me, {Ref, timeout}),
+    _ = spawn(fun() -> Me ! {Ref, poll({Healthcheck, HCArgs}, Ref, Interval, Timeout)} end),
+    Result =
+        receive
+            {Ref, true} -> ok;
+            {Ref, timeout} -> {error, healthcheck_timeout};
+            {Ref, Failure} ->    {error, {healthcheck_failed, Failure}}
+        end,
+    _false = erlang:cancel_timer(TRef),
+    lager:debug("healthcheck returned: ~p~n", [Result]),
+    Result.
     %% TODO Return a #'TaskInfo'{} probably
-    {ok, Pid, OSPid}.
-% - [ ] try starting, 60s to pass healthcheck
-% - [ ] return task status to Scheduler: TASK_RUNNING or TASK_FAILED
 
 stop(#state{}=St) ->
     lager:info("rme:stop: ~p~n", [St]),
@@ -155,20 +207,6 @@ force_stop(#state{}=St) ->
 %    %% TODO Do we need to close the hackney client at all?
 %    ok = erl_tar:extract({binary, TGZ}, [compressed, {cwd, Location}]).
 
-%% TODO Ascertain scope for all of this:
-%%  - riak-mesos
-%%  - node_package (riak-specific)
-%%  - or node_package (generic)
-
-% - [ ] fetch config data from framework at
-% `${TaskInfo.Data.URI}/api/v1/clusters/%{clustername}/config`
-% - [ ] populate a template from config? see riak-mesos/executor/node.go:116
-% - [ ] write config to 'root/riak/etc/riak.conf' (defined by caller)
-% - [ ] fetch advanced config from framework at
-% `${TaskInfo.Data.URI}/api/v1/clusters/${clustername}/advancedConfig`
-% - [ ] populate advanced template from data
-% - [ ] write to 'root/riai/etc/advanced.config'
-    % We should probably do this outside of rnp, right?
 configure(Location, ConfigURI, TD) ->
     {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
     {ok, ConfigTmpl} = hackney:body(Resp),

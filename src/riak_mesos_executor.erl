@@ -67,10 +67,16 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
     TaskStatus = #'TaskStatus'{ task_id=TaskId, state='TASK_STARTING' },
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, RNPSetup} = riak_mesos_rnp:setup(TaskInfo),
-    %% TODO Make this {ok, RNPStarted}
-    RNPStarted = riak_mesos_rnp:start(RNPSetup),
-    {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
-    {ok, State#state{task_status=TaskStatus, rnp_state=RNPStarted}}.
+    case riak_mesos_rnp:start(RNPSetup) of
+        {ok, RNPStarted} ->
+            {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
+            {ok, State#state{task_status=TaskStatus, rnp_state=RNPStarted}};
+        {error,_}=Err ->
+            lager:warning("Failed to start: ~p", [Err]),
+            {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_FAILED'}),
+            %% TODO Surely we need to return some other state here...
+            {ok, State#state{task_status=TaskStatus}}
+    end.
 
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.
 killTask(#'TaskID'{}=TaskId, #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
