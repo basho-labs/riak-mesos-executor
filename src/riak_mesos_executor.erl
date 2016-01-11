@@ -68,8 +68,8 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, RNPSetup} = riak_mesos_rnp:setup(TaskInfo),
     case riak_mesos_rnp:start(RNPSetup) of
-        {ok, RNPStarted} ->
-            {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING'}),
+        {ok, RNPStarted, Bytes} ->
+            {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING', data=Bytes}),
             {ok, State#state{task_status=TaskStatus, rnp_state=RNPStarted}};
         {error,_}=Err ->
             lager:warning("Failed to start: ~p", [Err]),
