@@ -1,5 +1,7 @@
 -module(riak_mesos_rnp).
 
+%% TODO Tidy up the mochijson2:(en|de)code/1 usage: look at (en|de)code/2
+%%
 -export([
          setup/1,
          start/1,
@@ -29,6 +31,8 @@
          ports = [],
          cepmd_port = 0,
          exes = [],
+         task_id,
+         taskdata :: #taskdata{},
          md_mgr :: port()
         }).
 
@@ -50,6 +54,7 @@
 setup(#'TaskInfo'{}=TaskInfo) ->
     lager:debug("TaskInfo: ~n~p~n", [TaskInfo]),
     #'TaskInfo'{
+       task_id=TaskId,
        resources=Resources,
        executor=ExecInfo,
        data=RawTData
@@ -77,7 +82,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
-    {ok, State2#state{md_mgr=MDMgr}}.
+    {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
 filter_ports(#taskdata{}=TD, #state{}=State0) ->
     #state{ports=Ps}=State0,
@@ -98,7 +103,10 @@ process_resources([_ | Rs], #state{}=State) ->
 %    {P, State#state{ports=Ps}}.
 
 start(#state{}=State) ->
-    #state{cepmd_port=Port, exes=Exes} = State,
+    #state{cepmd_port=Port,
+           task_id=TaskId,
+           taskdata=Taskdata,
+           exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, CEPMD} = riak_mesos_executor_sup:start_cmd("../",
@@ -112,23 +120,59 @@ start(#state{}=State) ->
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
-    Ret = riak_mesos_executor_sup:start_cmd(Location, [Script, "console", "-noinput", "-no_epmd"], []),
+    Command = [Script, "console", "-noinput", "-no_epmd"],
     %% TODO This whole process management needs ironing out
-    case Ret of
+    case riak_mesos_executor_sup:start_cmd(Location, Command, []) of
         {ok, Pid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
             case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
-                ok -> {ok, State2};
+                ok ->
+                    Data = serialise_coordinated_data(Taskdata),
+                    {ok, Child, Data} = set_coordinated_child(TaskId, Data),
+                    lager:debug("Coordinated data (~p): ~p", [Child, Data]),
+                    RexPort = Taskdata#taskdata.http_port,
+                    JSON = iolist_to_binary(mochijson2:encode({struct, [{<<"RexPort">>, RexPort}]})),
+                    {ok, State2, JSON};
                 %% TODO Need to shut it all down here
                 %% TODO Perhaps return some other state?
                 {error, _}=Err -> Err
             end;
-        _Other ->
-            lager:error("start_cmd returned: ~p~n", [Ret])
+        Error ->
+            lager:error("start_cmd returned: ~p~n", [Error])
     end.
 
-%% TODO healthcheck is an exercise left for the reader.
+serialise_coordinated_data(#taskdata{}=TD) ->
+    %% TODO can't we just use the original TDKV?
+    RawIO = mochijson2:encode({struct,
+                       [
+                        {<<"FrameworkName">>, list_to_binary(TD#taskdata.framework_name)},
+                        {<<"ClusterName">>,   list_to_binary(TD#taskdata.cluster_name)},
+                        {<<"NodeName">>,      list_to_binary(TD#taskdata.node_name)},
+                        {<<"DisterlPort">>, TD#taskdata.disterl_port},
+                        {<<"PBPort">>,      TD#taskdata.pb_port},
+                        {<<"HTTPPort">>,    TD#taskdata.http_port},
+                        {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
+                       ]}),
+    iolist_to_binary(RawIO).
+
+set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
+    {ok, Root, _Data} = mesos_metadata_manager:get_root_node(),
+    {ok, Coordinator, _} = ensure_child(Root, "coordinator"),
+    {ok, CoordinatedNodes, _} = ensure_child(Coordinator, "coordinatedNodes"),
+    {ok, _Child, _} = mesos_metadata_manager:make_child_with_data(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData, true).
+
+ensure_child(Root, Child) ->
+    {ok, Children} = mesos_metadata_manager:get_children(Root),
+    case lists:member(Child, Children) of
+        true ->
+            lager:debug("Using existing child: ~p", [Child]),
+            mesos_metadata_manager:get_node(filename:join([Root, Child]));
+        false ->
+            lager:debug("Creating new child: ~p", [Child]),
+            mesos_metadata_manager:make_child(Root, Child)
+    end.
+
 healthcheck(Dir) ->
     %% TODO Rid ourselves of special snowflakes
     Logfile = filename:join([Dir, "log", "console.log"]),
@@ -147,6 +191,7 @@ log_contains(File, Pattern) ->
         nomatch -> false;
         {_,_} -> true
     end.
+
 %% TODO riak-admin provides a 'wait-for-service <service> [<node>]' command
 %% maybe we can reuse that?
 %services_available(Admin) ->
