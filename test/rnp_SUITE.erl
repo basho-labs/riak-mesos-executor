@@ -6,6 +6,7 @@
          end_per_suite/1]).
 
 -export([
+         t_not_running/1,
          t_start_app/1
         ]).
 
@@ -22,6 +23,7 @@ suite() ->
 groups() ->
     [{rnp_sampler, [],
       [
+       t_not_running,
        t_start_app
       ]}].
 
@@ -38,9 +40,20 @@ init_per_suite(Config) ->
     [{runner, Runner}, {admin, Admin} | Config].
 end_per_suite(_Config) -> ok.
 
+t_not_running(Config) ->
+    down = status(Config).
+
 t_start_app(Config) ->
     PrivDir = ?config(priv_dir, Config),
-    {ok, _Sup} = riak_mesos_executor_sup:start_link(),
+    {ok, _Sup} = rnp_exec_sup:start_link(),
     {ok, _Sampler} = rnp_exec_sup:start_cmd(
-                      PrivDir, ["sampler/bin/sampler", "console", "-noinput"], []),
-    ok.
+                      PrivDir, [?config(runner, Config), "console", "-noinput"], []),
+    {up, _} = status(Config).
+
+status(Config) ->
+    case os:cmd(?config(admin, Config) ++ " status") of
+        "Node is not running!\n" -> down;
+        [_|_]=Other ->
+            %% TODO this dumps a little json - let's parse it
+            {up, Other}
+    end.
