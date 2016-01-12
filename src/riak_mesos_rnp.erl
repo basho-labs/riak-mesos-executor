@@ -109,7 +109,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD} = riak_mesos_executor_sup:start_cmd("../",
+    {ok, CEPMD} = rnp_exec_sup:start_cmd("../",
                                           ["cepmd_linux_amd64",
                                               "-name=riak",
                                               "-zk=master.mesos:2181",
@@ -122,7 +122,7 @@ start(#state{}=State) ->
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-no_epmd"],
     %% TODO This whole process management needs ironing out
-    case riak_mesos_executor_sup:start_cmd(Location, Command, []) of
+    case rnp_exec_sup:start_cmd(Location, Command, []) of
         {ok, Pid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
