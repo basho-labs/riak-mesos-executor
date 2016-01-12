@@ -40,6 +40,8 @@ stage: rel
 	$(foreach app,$(wildcard apps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/riak_mesos_executor/lib;)
 recycle: relclean depclean rel
 
+test-deps:
+	$(MAKE) -C priv sampler.tar.gz
 ##
 ## Packaging targets
 ##
