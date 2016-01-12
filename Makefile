@@ -10,7 +10,7 @@ ERLANG_BIN       = $(shell dirname $(shell which erl))
 REBAR           ?= $(BASE_DIR)/rebar
 OVERLAY_VARS    ?=
 
-.PHONY: deps
+.PHONY: deps test
 
 all: compile
 compile: deps
@@ -25,8 +25,8 @@ deps:
 	$(REBAR) get-deps
 cleantest:
 	rm -rf .eunit/*
-test: cleantest
-	$(REBAR)  skip_deps=true eunit
+test:
+	$(REBAR) skip_deps=true ct
 rel: relclean deps compile
 	$(REBAR) compile
 	$(REBAR) skip_deps=true generate $(OVERLAY_VARS)
@@ -42,6 +42,8 @@ recycle: relclean depclean rel
 
 test-deps:
 	$(MAKE) -C priv sampler.tar.gz
+	-mkdir -p test/rnp_SUITE_data
+	-cp priv/sampler.tar.gz test/rnp_SUITE_data/
 ##
 ## Packaging targets
 ##
