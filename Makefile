@@ -43,7 +43,9 @@ recycle: relclean depclean rel
 test-deps:
 	$(MAKE) -C priv sampler.tar.gz
 	-mkdir -p test/rnp_SUITE_data
+	-mkdir -p test/rnp_sup_bridge_SUITE_data
 	-cp priv/sampler.tar.gz test/rnp_SUITE_data/
+	-cp priv/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 ##
 ## Packaging targets
 ##
