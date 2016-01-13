@@ -27,6 +27,13 @@ rebar.config.lock: deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam
 	$(REBAR) lock-deps
 deps: rebar.config.lock
 	$(REBAR) -C rebar.config.lock get-deps
+#upgrade-deps:
+# TODO log-changed-deps seems to have a bug
+#	$(REBAR) log-changed-deps
+force-upgrade-deps:
+	# EXPERIMENTAL AND INVASIVE
+	rm -rf deps
+	$(REBAR) get-deps compile lock-deps
 cleantest:
 	rm -rf .eunit/*
 test: cleantest
