@@ -1,0 +1,76 @@
+%% THIS FILE IS GENERATED. DO NOT EDIT IT MANUALLY %%
+
+{sub_dirs,["rel"]}.
+{cover_enabled,true}.
+{lib_dirs,["deps","apps"]}.
+{erl_opts,[debug_info,warnings_as_errors,{parse_transform,lager_transform}]}.
+{xref_checks,[undefined_function_calls]}.
+{xref_queries,[{"(XC - UC) || (XU - X - B)",[]}]}.
+{reset_after_eunit,true}.
+{eunit_opts,[verbose]}.
+{edoc_opts,[preprocess,{dir,"edoc"}]}.
+{deps,[{node_package,".*",
+                     {git,"git://github.com/basho/node_package",
+                          "14fe2df9ae9f436f2641448b2ae16446d9e74fed"}},
+       {getopt,".*",
+               {git,"git://github.com/jcomellas/getopt.git",
+                    "659a28f4145bc9843598972854299dc4ea77e4cb"}},
+       {goldrush,".*",
+                 {git,"git://github.com/DeadZen/goldrush.git",
+                      "71e63212f12c25827e0c1b4198d37d5d018a7fec"}},
+       {lager,".*",
+              {git,"git://github.com/basho/lager",
+                   "b6b6cebcb27ccff8acc59ae775acebc2f52e4926"}},
+       {neotoma,".*",
+                {git,"git://github.com/seancribbs/neotoma.git",
+                     "760928ec8870da02eb11bccb501e2700925d06c6"}},
+       {cuttlefish,".*",
+                   {git,"git://github.com/basho/cuttlefish",
+                        "c92c8325aeaea6b6ba7516bbd434f8e408f87d60"}},
+       {clique,".*",
+               {git,"git://github.com/basho/clique.git",
+                    "e7e260c9ab4a9fe5e988236cb577e63a0c9ab4c8"}},
+       {syslog,".*",
+               {git,"git://github.com/Vagabond/erlang-syslog.git",
+                    "918c9b453e0811b24f2c99b35b712b0ef9f29c7e"}},
+       {lager_syslog,".*",
+                     {git,"git://github.com/basho/lager_syslog",
+                          "fa2e7e3daee0d0a59dadb820fd3381eac4a65770"}},
+       {mochiweb,".*",
+                 {git,"git://github.com/basho/mochiweb",
+                      "ade2a9b29a11034eb550c1d79b4f991bf5ca05ba"}},
+       {idna,".*",
+             {git,"https://github.com/benoitc/erlang-idna",
+                  "c80afc2c3120010fd22287a3b2ef2bbbde57ff40"}},
+       {ssl_verify_hostname,".*",
+                            {git,"https://github.com/deadtrickster/ssl_verify_hostname.erl",
+                                 "1105981e2c3afb40dcda46163aa54c3f931a1e0b"}},
+       {hackney,".*",
+                {git,"git://github.com/benoitc/hackney",
+                     "b29a643c572bb83f8089bd57c373e7aaf1e86608"}},
+       {meck,".*",
+             {git,"https://github.com/eproxus/meck.git",
+                  "ccc817ee45a8ee1f2ba244ab3e8f1ddc178df685"}},
+       {mustache,".*",
+                 {git,"git://github.com/mojombo/mustache.erl",
+                      "5ac1f216f7db5c16f441235b9008050d7c2ffd55"}},
+       {gpb,".*",
+            {git,"git://github.com/tomas-abrahamsson/gpb.git",
+                 "cad0d21c8d1867dc7f2ce0f6792c998ffa52fa4b"}},
+       {erlang_mesos,".*",
+                     {git,"git://github.com/basho-labs/mesos-executor-bindings.git",
+                          "593bf769acc285b54ebd5056505bbe474377eb76"}},
+       {erlzk,".*",
+              {git,"git://github.com/huaban/erlzk.git",
+                   "1fa486c7b65e96f5421d977b22df526dd47e87bc"}},
+       {riak_mesos_md_mgr,".*",
+                          {git,"git@github.com:/basho-labs/riak-mesos-metadata-manager.git",
+                               "918846336dcef0d7b484dac48597be598fb57878"}},
+       {rebar_lock_deps_plugin,".*",
+                               {git,"git://github.com/seth/rebar_lock_deps_plugin.git",
+                                    "7a5835029c42b8138325405237ea7e8516a84800"}},
+       {erlexec,".*",
+                {git,"https://github.com/basho/erlexec.git",
+                     "7ed96ae9db7593980ebd81fa5f329e6c61e3c88f"}}]}.
+{plugins,[rebar_lock_deps_plugin]}.
+
