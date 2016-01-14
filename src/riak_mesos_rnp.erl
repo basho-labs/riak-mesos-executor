@@ -126,7 +126,8 @@ start(#state{}=State) ->
                 {error, _}=Err -> Err
             end;
         Error ->
-            lager:error("start_cmd returned: ~p~n", [Error])
+            lager:error("start_cmd returned: ~p~n", [Error]),
+            Error
     end.
 
 start_cepmd(Port) ->
