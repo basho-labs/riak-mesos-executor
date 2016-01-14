@@ -140,16 +140,17 @@ start_cepmd(Port) ->
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
-    RawIO = mochijson2:encode({struct,
-                       [
-                        {<<"FrameworkName">>, list_to_binary(TD#taskdata.framework_name)},
-                        {<<"ClusterName">>,   list_to_binary(TD#taskdata.cluster_name)},
-                        {<<"NodeName">>,      list_to_binary(TD#taskdata.node_name)},
-                        {<<"DisterlPort">>, TD#taskdata.disterl_port},
-                        {<<"PBPort">>,      TD#taskdata.pb_port},
-                        {<<"HTTPPort">>,    TD#taskdata.http_port},
-                        {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
-                       ]}),
+    RawIO = mochijson2:encode(
+              {struct,
+               [
+                {<<"FrameworkName">>, list_to_binary(TD#taskdata.framework_name)},
+                {<<"ClusterName">>,   list_to_binary(TD#taskdata.cluster_name)},
+                {<<"NodeName">>,      list_to_binary(TD#taskdata.node_name)},
+                {<<"DisterlPort">>, TD#taskdata.disterl_port},
+                {<<"PBPort">>,      TD#taskdata.pb_port},
+                {<<"HTTPPort">>,    TD#taskdata.http_port},
+                {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
+               ]}),
     iolist_to_binary(RawIO).
 
 set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
