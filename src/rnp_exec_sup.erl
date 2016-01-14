@@ -31,8 +31,12 @@ start_cmd(Exe, Opts0) ->
         end,
     %% TODO Hopefully we can rid ourselves of this eventually..
     Opts = ensure_loggers(Opts0),
-    Child = {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]}, transient, 300, supervisor, dynamic},
-    supervisor:start_child(?MODULE, Child).
+    Child = {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]},
+             transient, % Restart unless it exits with 'normal'
+             300, supervisor, dynamic},
+    {ok, ChildPid} = supervisor:start_child(?MODULE, Child),
+    OSPid = rnp_sup_bridge:os_pid(ChildPid),
+    {ok, ChildPid, OSPid}.
 
 % Make sure there's a logging fun for both stdout and stderr
 % Otherwise erlexec uses something nonsensical

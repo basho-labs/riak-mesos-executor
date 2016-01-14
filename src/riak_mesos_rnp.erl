@@ -110,7 +110,7 @@ start(#state{}=State) ->
     Command = [Script, "console", "-noinput", "-no_epmd"],
     %% TODO This whole process management needs ironing out
     case rnp_exec_sup:start_cmd(Location, Command, []) of
-        {ok, Pid} ->
+        {ok, Pid, _OSPid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
             case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
