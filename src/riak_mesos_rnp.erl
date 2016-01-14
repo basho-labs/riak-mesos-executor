@@ -59,13 +59,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
        executor=ExecInfo,
        data=RawTData
       }=TaskInfo,
-    #'ExecutorInfo'{
-       source="riak", %% TODO Is this really a string?
-       command=CmdInfo
-      }=ExecInfo,
-    #'CommandInfo'{
-       shell = _Shell
-      }=CmdInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
