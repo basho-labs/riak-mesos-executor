@@ -102,13 +102,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD} = rnp_exec_sup:start_cmd("../",
-                                          ["cepmd_linux_amd64",
-                                              "-name=riak",
-                                              "-zk=master.mesos:2181",
-                                              "-riak_lib_dir=root/riak/lib",
-                                              "-port="++integer_to_list(Port)],
-                                          []),
+    {ok, CEPMD} = start_cepmd(Port),
     State1 = State#state{exes=[CEPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
@@ -134,6 +128,15 @@ start(#state{}=State) ->
         Error ->
             lager:error("start_cmd returned: ~p~n", [Error])
     end.
+
+start_cepmd(Port) ->
+    {ok, _, _} =
+    rnp_exec_sup:start_cmd("../",
+                           ["cepmd_linux_amd64",
+                            "-name=riak",
+                            "-zk=master.mesos:2181",
+                            "-riak_lib_dir=root/riak/lib",
+                            "-port="++integer_to_list(Port)], []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
