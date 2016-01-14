@@ -19,10 +19,21 @@ recompile:
 	$(REBAR) compile skip_deps=true
 clean:
 	$(REBAR) clean
-depclean:
+clean-deps:
 	$(REBAR) -r clean
-deps:
-	$(REBAR) get-deps
+deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam:
+	$(REBAR) get-deps compile
+rebar.config.lock: deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam
+	$(REBAR) lock-deps
+deps: rebar.config.lock
+	$(REBAR) -C rebar.config.lock get-deps
+#upgrade-deps:
+# TODO log-changed-deps seems to have a bug
+#	$(REBAR) log-changed-deps
+force-upgrade-deps:
+	# EXPERIMENTAL AND INVASIVE
+	rm -rf deps
+	$(REBAR) get-deps compile lock-deps
 cleantest:
 	rm -rf .eunit/*
 test: cleantest
@@ -38,7 +49,7 @@ distclean: clean
 stage: rel
 	$(foreach dep,$(wildcard deps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) rel/riak_mesos_executor/lib;)
 	$(foreach app,$(wildcard apps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/riak_mesos_executor/lib;)
-recycle: relclean depclean rel
+recycle: relclean clean-deps rel
 
 ##
 ## Packaging targets
