@@ -7,6 +7,7 @@
          end_per_suite/1]).
 -export([
          t_start_stop_app/1,
+         t_start_term_app/1,
          t_start_kill_app/1
         ]).
 
@@ -25,6 +26,7 @@ groups() ->
      {cmd, [],
       [
        t_start_stop_app,
+       t_start_term_app,
        t_start_kill_app
       ]}].
 
@@ -54,4 +56,30 @@ t_start_stop_app(Config) ->
             Other -> ct:fail({unexpected_receive, Other})
     after 5000 -> ct:fail(timeout) end.
 
-t_start_kill_app(Config) -> ct:fail(unimplemented).
+t_start_term_app(Config) ->
+    process_flag(trap_exit, true),
+    WD = ?config(priv_dir, Config),
+    Runner = ?config(runner, Config),
+    {ok, _Exec} = exec:start_link([]),
+    {ok, SB} = rnp_sup_bridge:start_link([Runner, "console", "-noinput"], [{cd, WD}]),
+    OSPid = rnp_sup_bridge:os_pid(SB),
+    % Cleanly stop the app from outside
+    os:cmd("kill -15 " ++ integer_to_list(OSPid)),
+    % Make sure we are alerted that the application went away 'normal'ly
+    receive {'EXIT', SB, {exit_status, 15}} -> ok;
+            Other -> ct:fail({unexpected_receive, Other})
+    after 5000 -> ct:fail(timeout) end.
+
+t_start_kill_app(Config) ->
+    process_flag(trap_exit, true),
+    WD = ?config(priv_dir, Config),
+    Runner = ?config(runner, Config),
+    {ok, _Exec} = exec:start_link([]),
+    {ok, SB} = rnp_sup_bridge:start_link([Runner, "console", "-noinput"], [{cd, WD}]),
+    OSPid = rnp_sup_bridge:os_pid(SB),
+    % Brutally kill the app from outside
+    os:cmd("kill -9 " ++ integer_to_list(OSPid)),
+    % Make sure we are alerted that the application went away 'normal'ly
+    receive {'EXIT', SB, {exit_status, 9}} -> ok;
+            Other -> ct:fail({unexpected_receive, Other})
+    after 5000 -> ct:fail(timeout) end.
