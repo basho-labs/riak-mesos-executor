@@ -56,7 +56,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     #'TaskInfo'{
        task_id=TaskId,
        resources=Resources,
-       executor=ExecInfo,
+       executor=(#'ExecutorInfo'{source="riak"}),
        data=RawTData
       }=TaskInfo,
     State0 = process_resources(Resources),
