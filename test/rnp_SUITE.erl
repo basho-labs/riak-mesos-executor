@@ -42,18 +42,18 @@ groups() ->
        t_start_app,
        t_notice_stop
       ]},
-     {template, [sequence], [
-                     t_check_match,
-                     t_check_match_more,
-                     t_check_match_most,
-                     t_small_replace,
-                     t_brace_replace,
-                     t_medium_replace,
-                     t_large_replace,
-                     t_idempotent,
-                     t_holistic
-                    ]}
-
+     {template, [sequence],
+      [
+       t_check_match,
+       t_check_match_more,
+       t_check_match_most,
+       t_small_replace,
+       t_brace_replace,
+       t_medium_replace,
+       t_large_replace,
+       t_idempotent,
+       t_holistic
+      ]}
     ].
 
 init_per_suite(Config) -> Config.
