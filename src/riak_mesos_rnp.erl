@@ -130,17 +130,12 @@ start(#state{}=State) ->
             Error
     end.
 
-stop(#state{}=St) ->
-    lager:info("rme:stop: ~p~n", [St]),
+stop(#state{exes=Exes}) ->
+    [ rnp_exec_sup:stop_cmd(E) || E <- Exes ],
     ok.
 
-force_stop(#state{}=St) ->
-    #state{exes=Exes}=St,
-    [ begin
-          Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
-          %% TODO supervisor:delete_child/2
-          lager:debug("terminate ret: ~p", [Ret])
-    end || {ok, E, _} <- Exes ],
+force_stop(#state{exes=Exes}=_St) ->
+    [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
     ok.
 
 start_cepmd(Port) ->
