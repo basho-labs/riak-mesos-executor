@@ -92,8 +92,6 @@ t_notice_stop(Config) ->
                 PrivDir, [?config(runner, Config), "console", "-noinput"], []),
     {up, _} = status(Config),
     _ = stop(Config),
-    receive Foo -> ct:pal("receive: ~p~n", [Foo])
-    after 1 -> none end,
     ct:pal("Sampler alive:~s~n", [is_process_alive(Sampler)]),
     down = status(Config).
 
