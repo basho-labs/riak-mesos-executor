@@ -6,6 +6,7 @@
          start_cmd/2,
          start_cmd/3,
          stop_cmd/1,
+         kill_cmd/1,
          log/3]).
 
 -export([init/1]).
@@ -41,6 +42,15 @@ start_cmd(Exe, Opts0) ->
 
 stop_cmd(Pid) when is_pid(Pid) ->
     exec:stop(rnp_sup_bridge:erl_pid(Pid)).
+
+kill_cmd(Pid) when is_pid(Pid) ->
+    ChildId = child_id_for_pid(Pid),
+    ok = supervisor:terminate_child(?MODULE, ChildId),
+    supervisor:delete_child(?MODULE, ChildId).
+
+child_id_for_pid(Pid) ->
+    [ChildId] = [ C || {C, P, _, _} <- supervisor:which_children(?MODULE), P == Pid ],
+    ChildId.
 
 % Make sure there's a logging fun for both stdout and stderr
 % Otherwise erlexec uses something nonsensical
