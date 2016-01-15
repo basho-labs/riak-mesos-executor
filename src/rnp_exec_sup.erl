@@ -5,6 +5,7 @@
          start_link/2,
          start_cmd/2,
          start_cmd/3,
+         stop_cmd/1,
          log/3]).
 
 -export([init/1]).
@@ -37,6 +38,9 @@ start_cmd(Exe, Opts0) ->
     {ok, ChildPid} = supervisor:start_child(?MODULE, Child),
     OSPid = rnp_sup_bridge:os_pid(ChildPid),
     {ok, ChildPid, OSPid}.
+
+stop_cmd(Pid) when is_pid(Pid) ->
+    exec:stop(rnp_sup_bridge:erl_pid(Pid)).
 
 % Make sure there's a logging fun for both stdout and stderr
 % Otherwise erlexec uses something nonsensical

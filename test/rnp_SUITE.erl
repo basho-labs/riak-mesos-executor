@@ -10,7 +10,8 @@
 -export([
          t_not_running/1,
          t_start_app/1,
-         t_notice_stop/1
+         t_notice_stop/1,
+         t_controlled_stop/1
         ]).
 -export([
          t_check_match/1,
@@ -40,7 +41,8 @@ groups() ->
       [
        t_not_running,
        t_start_app,
-       t_notice_stop
+       t_notice_stop,
+       t_controlled_stop
       ]},
      {template, [sequence],
       [
@@ -93,6 +95,16 @@ t_notice_stop(Config) ->
     {up, _} = status(Config),
     _ = stop(Config),
     ct:pal("Sampler alive:~s~n", [is_process_alive(Sampler)]),
+    down = status(Config).
+
+t_controlled_stop(Config) ->
+    process_flag(trap_exit, true),
+    PrivDir = ?config(priv_dir, Config),
+    {ok, _Sup} = rnp_exec_sup:start_link(1, 1), %% no restart tolerance
+    {ok, Sampler, _} = rnp_exec_sup:start_cmd(
+                         PrivDir, [?config(runner, Config), "console", "-noinput"], []),
+    {up, _} = status(Config),
+    ok = rnp_exec_sup:stop_cmd(Sampler),
     down = status(Config).
 
 status(Config) ->
