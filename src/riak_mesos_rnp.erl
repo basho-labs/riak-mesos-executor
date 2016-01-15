@@ -130,6 +130,19 @@ start(#state{}=State) ->
             Error
     end.
 
+stop(#state{}=St) ->
+    lager:info("rme:stop: ~p~n", [St]),
+    ok.
+
+force_stop(#state{}=St) ->
+    #state{exes=Exes}=St,
+    [ begin
+          Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
+          %% TODO supervisor:delete_child/2
+          lager:debug("terminate ret: ~p", [Ret])
+    end || {ok, E, _} <- Exes ],
+    ok.
+
 start_cepmd(Port) ->
     {ok, _, _} =
     rnp_exec_sup:start_cmd("../",
@@ -229,19 +242,6 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     lager:debug("healthcheck returned: ~p~n", [Result]),
     Result.
     %% TODO Return a #'TaskInfo'{} probably
-
-stop(#state{}=St) ->
-    lager:info("rme:stop: ~p~n", [St]),
-    ok.
-
-force_stop(#state{}=St) ->
-    #state{exes=Exes}=St,
-    [ begin
-          Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
-          %% TODO supervisor:delete_child/2
-          lager:debug("terminate ret: ~p", [Ret])
-    end || {ok, E, _} <- Exes ],
-    ok.
 
 %install(Location, URI) ->
 %    %% TODO Move this all into run_node_package
