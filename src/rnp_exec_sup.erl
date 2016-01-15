@@ -1,11 +1,11 @@
 -module(rnp_exec_sup).
 -behaviour(supervisor).
 
--export([start_link/0]).
--export([start_link/2]).
--export([start_cmd/2]).
--export([start_cmd/3]).
--export([log/3]).
+-export([start_link/0,
+         start_link/2,
+         start_cmd/2,
+         start_cmd/3,
+         log/3]).
 
 -export([init/1]).
 
