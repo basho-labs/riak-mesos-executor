@@ -12,11 +12,23 @@
          t_start_app/1,
          t_notice_stop/1
         ]).
+-export([
+         t_check_match/1,
+         t_check_match_more/1,
+         t_check_match_most/1,
+         t_small_replace/1,
+         t_brace_replace/1,
+         t_medium_replace/1,
+         t_large_replace/1,
+         t_idempotent/1,
+         t_holistic/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
     [
+     {group, template},
      {group, rnp_sampler}
     ].
 
@@ -29,7 +41,20 @@ groups() ->
        t_not_running,
        t_start_app,
        t_notice_stop
-      ]}].
+      ]},
+     {template, [sequence], [
+                     t_check_match,
+                     t_check_match_more,
+                     t_check_match_most,
+                     t_small_replace,
+                     t_brace_replace,
+                     t_medium_replace,
+                     t_large_replace,
+                     t_idempotent,
+                     t_holistic
+                    ]}
+
+    ].
 
 init_per_suite(Config) -> Config.
 end_per_suite(_Config) -> ok.
@@ -82,3 +107,77 @@ status(Config) ->
 
 stop(Config) ->
     os:cmd(?config(runner, Config) ++ " stop").
+
+t_check_match(_) ->
+    nomatch = rnp_template:match(<<"{{foobarbaz}}">>),
+    nomatch = rnp_template:match(<<"{ {{foobarbaz}} }">>),
+    {match,_} = rnp_template:match(<<"{{{.FooBarBaz}}}">>).
+
+t_check_match_more(Conf) ->
+    {ok, T} = file("advanced-fixed.config", Conf),
+    nomatch = rnp_template:match(T).
+
+t_check_match_most(Conf) ->
+    {ok, T} = file("riak-fixed.conf", Conf),
+    nomatch = rnp_template:match(T).
+
+t_small_replace(_) ->
+    Tmpl = <<"{{.FooBarBaz}}">>,
+    Result = <<"{{foobarbaz}}">>,
+    verify(rnp_template:mustachify(Tmpl), Result).
+
+t_brace_replace(_) ->
+    Tmpl = <<"{{{.FooBarBaz}}}">>,
+    Result = <<"{ {{foobarbaz}} }">>,
+    verify(rnp_template:mustachify(Tmpl), Result).
+
+t_medium_replace(Conf) ->
+    {ok, Tmpl} = file("advanced.config", Conf),
+    {ok, Result} = file("advanced-fixed.config", Conf),
+    Answer = rnp_template:mustachify(Tmpl),
+    %ct:pal("Replaced template: ~n~s~n", [Answer]),
+    verify(Answer, Result).
+
+t_large_replace(Conf) ->
+    {ok, Tmpl} = file("riak.conf", Conf),
+    {ok, Result} = file("riak-fixed.conf", Conf),
+    Answer = rnp_template:mustachify(Tmpl),
+    verify(Answer, Result).
+
+t_idempotent(Conf) ->
+    {ok, Result} = file("riak-fixed.conf", Conf),
+    Answer0 = rnp_template:mustachify(Result),
+    verify(Answer0, Result).
+
+t_holistic(Conf) ->
+    {ok, AdvT} = file("advanced-fixed.config", Conf),
+    {ok, AdvFinal} = file("advanced-final.config", Conf),
+
+    AdvRender = mustache:render(binary_to_list(AdvT),
+                                dict:from_list([{cepmdport, 0}])),
+    verify(AdvRender, AdvFinal).
+
+
+file(Name, Conf) ->
+    {ok, _} = file:read_file(?config(data_dir, Conf)  ++ Name ).
+
+verify(Answer, Solution) when is_list(Answer) ->
+    verify(list_to_binary(lists:flatten(Answer)), Solution);
+verify(Answer, Solution) when is_list(Solution) ->
+    verify(Answer, list_to_binary(lists:flatten(Solution)));
+
+verify(Answer, Solution) when is_binary(Answer), is_binary(Solution) ->
+    case Answer == Solution of
+        true -> ok;
+        false ->
+            MatchUntil = binary:longest_common_prefix([Answer, Solution]),
+            io:format("Differs at (~p): ~n~s~n~s~n", [MatchUntil,
+                                                   relevant(Answer, MatchUntil),
+                                                   relevant(Solution, MatchUntil)]),
+            ct:fail({unmatched_result})
+    end.
+
+relevant(Bin, _) when byte_size(Bin) < 100 ->
+    Bin;
+relevant(Bin, MatchUntil) ->
+    binary_part(Bin, MatchUntil-50, 100).
