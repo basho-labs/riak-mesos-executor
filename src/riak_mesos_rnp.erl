@@ -102,7 +102,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD} = start_cepmd(Port),
+    {ok, CEPMD, _} = start_cepmd(Port),
     State1 = State#state{exes=[CEPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
