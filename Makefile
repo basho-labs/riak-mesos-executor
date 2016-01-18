@@ -25,7 +25,7 @@ deps:
 	$(REBAR) get-deps
 cleantest:
 	rm -rf .eunit/*
-test:
+test: test-deps
 	$(REBAR) skip_deps=true ct
 rel: relclean deps compile
 	$(REBAR) compile
