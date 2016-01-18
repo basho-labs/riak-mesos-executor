@@ -10,3 +10,5 @@ rel/riak_mesos_executor
 .concrete/DEV_MODE
 .rebar
 .vagrant
+ct.coverdata
+ct_log
