@@ -11,6 +11,10 @@ Alternatively `make stage` then `make recompile` when changes are made to `*.erl
 
 ### Testing
 
+```
+make && make test
+```
+
 #### Run the riak_mesos_executor application
 
 ```
