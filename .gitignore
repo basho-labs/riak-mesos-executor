@@ -13,4 +13,4 @@ rel/riak_mesos_executor
 ct.coverdata
 ct_log
 **/sampler.tar.gz
-priv/erlang-app-skeleton
+test-deps/erlang-app-skeleton
