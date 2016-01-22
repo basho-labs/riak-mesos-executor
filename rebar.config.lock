@@ -72,6 +72,6 @@
                                "918846336dcef0d7b484dac48597be598fb57878"}},
        {erlexec,".*",
                 {git,"https://github.com/basho/erlexec.git",
-                     "7ed96ae9db7593980ebd81fa5f329e6c61e3c88f"}}]}.
+                     "f906b92797fc3701d578df45dad7653ef27e01d8"}}]}.
 {plugins,[rebar_lock_deps_plugin]}.
 
