@@ -18,7 +18,7 @@ start_link(MaxRestarts, MaxSecsBetweenRestarts) ->
 init([MaxRestarts, MaxSecBetweenRestarts]) ->
     %% NB: We use one_for_one so that restart_child/2 is valid
     SupFlags = {one_for_one, MaxRestarts, MaxSecBetweenRestarts},
-    Exec = {exec, {exec, start_link, [[]]}, permanent, 10000, worker, [exec]},
+    Exec = {exec, {exec, start_link, [[root]]}, permanent, 10000, worker, [exec]},
     {ok, {SupFlags, [Exec]}}.
 
 start_cmd(Location, Exe, Opts) ->
