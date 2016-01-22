@@ -10,7 +10,7 @@ ERLANG_BIN       = $(shell dirname $(shell which erl))
 REBAR           ?= $(BASE_DIR)/rebar
 OVERLAY_VARS    ?=
 
-.PHONY: deps
+.PHONY: deps test test-deps
 
 all: compile
 compile: deps
@@ -36,8 +36,9 @@ force-upgrade-deps:
 	$(REBAR) get-deps compile lock-deps
 cleantest:
 	rm -rf .eunit/*
-test: cleantest
-	$(REBAR)  skip_deps=true eunit
+	rm -rf ct_log/*
+test: test-deps
+	$(REBAR) skip_deps=true ct
 rel: relclean deps compile
 	$(REBAR) compile
 	$(REBAR) skip_deps=true generate $(OVERLAY_VARS)
@@ -51,6 +52,12 @@ stage: rel
 	$(foreach app,$(wildcard apps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/riak_mesos_executor/lib;)
 recycle: relclean clean-deps rel
 
+test-deps:
+	$(MAKE) -C test-deps sampler.tar.gz
+	-mkdir -p test/rnp_SUITE_data
+	-mkdir -p test/rnp_sup_bridge_SUITE_data
+	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
+	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 ##
 ## Packaging targets
 ##

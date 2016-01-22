@@ -56,16 +56,9 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     #'TaskInfo'{
        task_id=TaskId,
        resources=Resources,
-       executor=ExecInfo,
+       executor=(#'ExecutorInfo'{source="riak"}),
        data=RawTData
       }=TaskInfo,
-    #'ExecutorInfo'{
-       source="riak", %% TODO Is this really a string?
-       command=CmdInfo
-      }=ExecInfo,
-    #'CommandInfo'{
-       shell = _Shell
-      }=CmdInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
@@ -109,21 +102,15 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD} = riak_mesos_executor_sup:start_cmd("../",
-                                          ["cepmd_linux_amd64",
-                                              "-name=riak",
-                                              "-zk=master.mesos:2181",
-                                              "-riak_lib_dir=root/riak/lib",
-                                              "-port="++integer_to_list(Port)],
-                                          []),
+    {ok, CEPMD, _} = start_cepmd(Port),
     State1 = State#state{exes=[CEPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-no_epmd"],
     %% TODO This whole process management needs ironing out
-    case riak_mesos_executor_sup:start_cmd(Location, Command, []) of
-        {ok, Pid} ->
+    case rnp_exec_sup:start_cmd(Location, Command, []) of
+        {ok, Pid, _OSPid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
             case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
@@ -139,21 +126,40 @@ start(#state{}=State) ->
                 {error, _}=Err -> Err
             end;
         Error ->
-            lager:error("start_cmd returned: ~p~n", [Error])
+            lager:error("start_cmd returned: ~p~n", [Error]),
+            Error
     end.
+
+stop(#state{exes=Exes}) ->
+    [ rnp_exec_sup:stop_cmd(E) || E <- Exes ],
+    ok.
+
+force_stop(#state{exes=Exes}=_St) ->
+    [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
+    ok.
+
+start_cepmd(Port) ->
+    {ok, _, _} =
+    rnp_exec_sup:start_cmd("../",
+                           ["cepmd_linux_amd64",
+                            "-name=riak",
+                            "-zk=master.mesos:2181",
+                            "-riak_lib_dir=root/riak/lib",
+                            "-port="++integer_to_list(Port)], []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
-    RawIO = mochijson2:encode({struct,
-                       [
-                        {<<"FrameworkName">>, list_to_binary(TD#taskdata.framework_name)},
-                        {<<"ClusterName">>,   list_to_binary(TD#taskdata.cluster_name)},
-                        {<<"NodeName">>,      list_to_binary(TD#taskdata.node_name)},
-                        {<<"DisterlPort">>, TD#taskdata.disterl_port},
-                        {<<"PBPort">>,      TD#taskdata.pb_port},
-                        {<<"HTTPPort">>,    TD#taskdata.http_port},
-                        {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
-                       ]}),
+    RawIO = mochijson2:encode(
+              {struct,
+               [
+                {<<"FrameworkName">>, list_to_binary(TD#taskdata.framework_name)},
+                {<<"ClusterName">>,   list_to_binary(TD#taskdata.cluster_name)},
+                {<<"NodeName">>,      list_to_binary(TD#taskdata.node_name)},
+                {<<"DisterlPort">>, TD#taskdata.disterl_port},
+                {<<"PBPort">>,      TD#taskdata.pb_port},
+                {<<"HTTPPort">>,    TD#taskdata.http_port},
+                {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
+               ]}),
     iolist_to_binary(RawIO).
 
 set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
@@ -232,19 +238,6 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     Result.
     %% TODO Return a #'TaskInfo'{} probably
 
-stop(#state{}=St) ->
-    lager:info("rme:stop: ~p~n", [St]),
-    ok.
-
-force_stop(#state{}=St) ->
-    #state{exes=Exes}=St,
-    [ begin
-          Ret = supervisor:terminate_child(riak_mesos_executor_sup, E),
-          %% TODO supervisor:delete_child/2
-          lager:debug("terminate ret: ~p", [Ret])
-    end || {ok, E, _} <- Exes ],
-    ok.
-
 %install(Location, URI) ->
 %    %% TODO Move this all into run_node_package
 %    {ok, 200, _Hdrs, Resp} = hackney:get(URI, [], <<>>, []),
@@ -255,37 +248,11 @@ force_stop(#state{}=St) ->
 configure(Location, ConfigURI, TD) ->
     {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
     {ok, ConfigTmpl} = hackney:body(Resp),
-    Template = binary_to_list(mustachify(ConfigTmpl)),
+    Template = binary_to_list(rnp_template:mustachify(ConfigTmpl)),
     Rendered = mustache:render(Template,
                     dict:from_list(smooth_raw_taskdata(TD))),
     ok = file:write_file(Location, Rendered),
     ok.
-
-%% TODO This. Is. TYRANNY.
-%% mustache template variables have to:
-%%  - start lowercase (i.e. not with a '.')
-%%  - be passed as atom keys
-%%  - be in a dict
-mustachify(Tmpl) ->
-    mustachify(match(Tmpl), Tmpl).
-
-match(Tmpl) ->
-    re:run(Tmpl, << "{{\\.[^}]+}}" >>).
-
-%% TODO This might be removable if we change the templates in the golang scheduler
-mustachify(nomatch, Tmpl) -> Tmpl;
-mustachify({match, [{Start, Len}]}, Tmpl) ->
-    Key = binary:part(Tmpl, Start, Len),
-    %% TODO Mustache has a bug: if the template variable is immediately followed by a }
-    %% that } gets eaten.
-    %% i.e. { foobar, {{foobarbaz}}}
-    %% becomes { foobar, baz
-    %% not { foobar, baz}
-    NoDot = binary:replace(Key, <<"{{\.">>, <<"{{">>),
-    Space0 = binary:replace(NoDot, <<"{{{">>, <<"{ {{">>),
-    Space1 = binary:replace(Space0, <<"}}}">>, <<"}} }">>),
-    Lower = list_to_binary(string:to_lower(binary_to_list(Space1))),
-    mustachify(binary:replace(Tmpl, Key, Lower)).
 
 smooth_raw_taskdata([]) -> [];
 smooth_raw_taskdata([{<<"Zookeepers">>, List} | Rest]) ->
