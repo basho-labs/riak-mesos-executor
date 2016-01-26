@@ -20,6 +20,7 @@
          uri              :: string(),
          host             :: string(),
          use_super_chroot :: boolean(),
+         epmd_port        :: non_neg_integer(),
          http_port        :: non_neg_integer(),
          pb_port          :: non_neg_integer(),
          handoff_port     :: non_neg_integer(),
@@ -61,8 +62,9 @@ setup(#'TaskInfo'{}=TaskInfo) ->
       }=TaskInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
-    #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
-    State2 = State1#state{cepmd_port=CEPMDPort, ports=Ps},
+    #state{}=State1 = filter_ports(TD, State0),
+    %% TODO We can probably remove cepmd_port now
+    State2 = State1#state{cepmd_port=(TD#taskdata.epmd_port)},
     %% TODO There are cleaner ways to wrangle JSON in erlang
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
@@ -79,7 +81,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
 
 filter_ports(#taskdata{}=TD, #state{}=State0) ->
     #state{ports=Ps}=State0,
-    Preallocated = [TD#taskdata.http_port, TD#taskdata.pb_port, TD#taskdata.handoff_port, TD#taskdata.disterl_port],
+    Preallocated = [TD#taskdata.epmd_port, TD#taskdata.http_port, TD#taskdata.pb_port, TD#taskdata.handoff_port, TD#taskdata.disterl_port],
     Filtered = Ps -- Preallocated,
     State0#state{ports=Filtered}.
 
@@ -95,21 +97,18 @@ process_resources([_ | Rs], #state{}=State) ->
 %take_port(#state{ports=[P|Ps]}=State) ->
 %    {P, State#state{ports=Ps}}.
 
-start(#state{}=State) ->
+start(#state{}=State1) ->
     #state{cepmd_port=Port,
            task_id=TaskId,
            taskdata=Taskdata,
-           exes=Exes} = State,
-    % Start CEPMD
-    lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD, _} = start_cepmd(Port),
-    State1 = State#state{exes=[CEPMD | Exes]},
+           exes=_Exes} = State1,
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
-    Command = [Script, "console", "-noinput", "-no_epmd"],
+    Command = [Script, "console", "-noinput"],
+    Env = [{"ERL_EPMD_PORT", integer_to_list(Port)}],
     %% TODO This whole process management needs ironing out
-    case rnp_exec_sup:start_cmd(Location, Command, []) of
+    case rnp_exec_sup:start_cmd(Location, Command, [{env, Env}]) of
         {ok, Pid, _OSPid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
@@ -137,15 +136,6 @@ stop(#state{exes=Exes}) ->
 force_stop(#state{exes=Exes}=_St) ->
     [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
     ok.
-
-start_cepmd(Port) ->
-    {ok, _, _} =
-    rnp_exec_sup:start_cmd("../",
-                           ["cepmd_linux_amd64",
-                            "-name=riak",
-                            "-zk=master.mesos:2181",
-                            "-riak_lib_dir=root/riak/lib",
-                            "-port="++integer_to_list(Port)], []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
@@ -283,6 +273,7 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
        host             = binary_to_list(proplists:get_value(<<"Host">>, Data)),
        use_super_chroot = proplists:get_value(<<"UseSuperChroot">>, Data),
+       epmd_port        = proplists:get_value(<<"EPMDPort">>, Data),
        http_port        = proplists:get_value(<<"HTTPPort">>, Data),
        pb_port          = proplists:get_value(<<"PBPort">>, Data),
        handoff_port     = proplists:get_value(<<"HandoffPort">>, Data),

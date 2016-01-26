@@ -58,6 +58,12 @@ test-deps:
 	-mkdir -p test/rnp_sup_bridge_SUITE_data
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
+
+basho-patches:
+	$(MAKE) -C rmf_patches
+	-mkdir -p /tmp/root/riak/lib/basho-patches
+	-cp rmf_patches/ebin/erl_epmd.beam /tmp/root/riak/lib/basho-patches
+	-tar -C /tmp -czf riak-basho-patches.tar.gz root/
 ##
 ## Packaging targets
 ##
