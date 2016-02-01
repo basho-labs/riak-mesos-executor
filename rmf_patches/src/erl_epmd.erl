@@ -34,7 +34,8 @@
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
 	 port_please/3, names/0, names/1,
-	 register_node/2, open/0, open/1, open/2]).
+	 register_node/2, open/0, open/1, open/2,
+     set_host_ports/1, unset_host_ports/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -42,7 +43,7 @@
 
 -import(lists, [reverse/1]).
 
--record(state, {socket, port_no = -1, name = ""}).
+-record(state, {socket, port_no = -1, name = "", host_ports = []}).
 -type state() :: #state{}.
 
 -include("inet_int.hrl").
@@ -63,6 +64,11 @@ start_link() ->
 stop() ->
     gen_server:call(?MODULE, stop, infinity).
 
+unset_host_ports() ->
+    set_host_ports([]).
+
+set_host_ports(Mapping) ->
+    gen_server:call(?MODULE, {set_host_ports, Mapping}).
 
 %% Lookup a node "Name" at Host
 %% return {port, P, Version} | noport
@@ -142,6 +148,9 @@ handle_call({register, Name, PortNo}, _From, State) ->
 	_ ->
 	    {reply, {error, already_registered}, State}
     end;
+
+handle_call({set_host_ports, Mapping}, _From, State) ->
+    {reply, ok, State#state{host_ports=Mapping}};
 
 handle_call(client_info_req, _From, State) ->
     Reply = {ok,{r4,State#state.name,State#state.port_no}},
