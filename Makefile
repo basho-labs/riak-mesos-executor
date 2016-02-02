@@ -1,24 +1,28 @@
-REPO         ?= riak_mesos_executor
-
-PKG_REVISION    ?= $(shell git describe --tags)
-PKG_VERSION	    ?= $(shell git describe --tags | tr - .)
-PKG_ID           = riak_mesos_executor-$(PKG_VERSION)
-PKG_BUILD        = 1
+REPO            ?= riak_mesos_executor
+PKG_VERSION	    ?= $(shell git describe --tags --abbrev=0 | tr - .)
+MAJOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f1)
+MINOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f2)
+ARCH            ?= amd64
+OSNAME          ?= ubuntu
+OSVERSION       ?= trusty
+DEPLOY_BASE     ?= riak-tools/$(REPO)/$(MAJOR).$(MINOR)/$(PKG_VERSION)/$(OSNAME)/$(OSVERSION)/
+PKGNAME          = $(REPO)-$(PKG_VERSION)-$(ARCH).tar.gz
 
 BASE_DIR         = $(shell pwd)
 ERLANG_BIN       = $(shell dirname $(shell which erl))
 REBAR           ?= $(BASE_DIR)/rebar
 OVERLAY_VARS    ?=
 
-.PHONY: deps test test-deps
+.PHONY: all compile recompile clean clean-deps deps force-upgrade-deps cleantest test rel relclean distclean stage recycle package tarball
 
 all: compile
 compile: deps
 	$(REBAR) compile
 recompile:
 	$(REBAR) compile skip_deps=true
-clean:
+clean: cleantest relclean
 	$(REBAR) clean
+	-rm -rf packages
 clean-deps:
 	$(REBAR) -r clean
 deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam:
@@ -58,10 +62,18 @@ test-deps:
 	-mkdir -p test/rnp_sup_bridge_SUITE_data
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
+
 ##
 ## Packaging targets
 ##
-.PHONY: package
-export PKG_VERSION PKG_ID PKG_BUILD BASE_DIR ERLANG_BIN REBAR OVERLAY_VARS RELEASE
-package: rel
-	-tar -C rel -czf riak_mesos_executor.tar.gz riak_mesos_executor/
+tarball: rel
+	echo "Creating packages/"$(PKGNAME)
+	mkdir -p packages
+	tar -C rel -czf $(PKGNAME) $(REPO)/
+	mv $(PKGNAME) packages/
+	cd packages && shasum -a 256 $(PKGNAME) > $(PKGNAME).sha
+sync:
+	echo "Uploading to "$(DEPLOY_BASE)
+	cd packages && \
+		s3cmd put --acl-public $(PKGNAME) s3://$(DEPLOY_BASE) && \
+		s3cmd put --acl-public $(PKGNAME).sha s3://$(DEPLOY_BASE)
