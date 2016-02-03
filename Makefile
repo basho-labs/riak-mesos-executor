@@ -63,10 +63,13 @@ test-deps:
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 
+cepmd:
+	-curl -O http://riak-tools.s3.amazonaws.com/riak-mesos/cepmd_linux_amd64
+	-mv cepmd_linux_amd64 rel/$(REPO)
 ##
 ## Packaging targets
 ##
-tarball: rel
+tarball: rel cepmd
 	echo "Creating packages/"$(PKGNAME)
 	mkdir -p packages
 	tar -C rel -czf $(PKGNAME) $(REPO)/
