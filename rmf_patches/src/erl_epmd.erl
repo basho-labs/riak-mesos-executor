@@ -203,21 +203,41 @@ get_epmd_port() ->
 	error ->
 	    error(epmd_port)
     end.
-	    
+
+% Short-circuit for localhost
+% NB: we can only support 1 EPMD per host, so we assume we've been told the
+% correct EPMD port via `-epmd_port 12345` or `ERL_EPMD_PORT=12345`
+get_epmd_port({127,0,0,1}) -> get_epmd_port();
+get_epmd_port({0,0,0,0,0,1}) -> get_epmd_port();
+get_epmd_port({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
+    get_epmd_port_(EpmdAddr);
+get_epmd_port({A,B,C,D,E,F,G,H}=EpmdAddr) when ?ip6(A,B,C,D,E,F,G,H) ->
+    get_epmd_port(EpmdAddr).
+
+get_epmd_port_(Addr) ->
+    case proplists:get_value(Addr, epmd_host_ports()) of
+        undefined -> get_epmd_port();
+        Port when is_integer(Port) -> Port
+    end.
+
+%% TODO Read this mapping from a file.
+epmd_host_ports() ->
+    [{{127,0,0,1}, 31001}].
+
 %%
 %% Epmd socket
 %%
 open() -> open({127,0,0,1}).  % The localhost IP address.
 
 open({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet]);
+    gen_tcp:connect(EpmdAddr, get_epmd_port(EpmdAddr), [inet]);
 open({A,B,C,D,E,F,G,H}=EpmdAddr) when ?ip6(A,B,C,D,E,F,G,H) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6]).
+    gen_tcp:connect(EpmdAddr, get_epmd_port(EpmdAddr), [inet6]).
 
 open({A,B,C,D}=EpmdAddr, Timeout) when ?ip(A,B,C,D) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet], Timeout);
+    gen_tcp:connect(EpmdAddr, get_epmd_port(EpmdAddr), [inet], Timeout);
 open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6], Timeout).
+    gen_tcp:connect(EpmdAddr, get_epmd_port(EpmdAddr), [inet6], Timeout).
 
 close(Socket) ->
     gen_tcp:close(Socket).
