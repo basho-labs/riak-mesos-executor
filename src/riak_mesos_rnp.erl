@@ -139,13 +139,25 @@ force_stop(#state{exes=Exes}=_St) ->
     ok.
 
 start_cepmd(Port) ->
-    {ok, _, _} =
-    rnp_exec_sup:start_cmd("../",
-                           ["cepmd_linux_amd64",
-                            "-name=riak",
-                            "-zk=master.mesos:2181",
-                            "-riak_lib_dir=root/riak/lib",
-                            "-port="++integer_to_list(Port)], []).
+    start_erlpmd(Port).
+
+%% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
+%% TODO Please tidy this formatting, it's an abomination.
+start_erlpmd(Port) ->
+    {ok, _} = supervisor:start_child(riak_mesos_executor_sup,
+                           {erlpmd, {erlpmd, start_link, [[]]}, transient, 5000, worker, [erlpmd]}),
+
+    {ok, _} = supervisor:start_child(riak_mesos_executor_sup,
+                                     {{ip, {127,0,0,1}},
+                                      {erlpmd_tcp_listener, start_link, [[{127,0,0,1}, Port]], transient, 5000, worker, [erlpmd_tcp_listener]}}).
+%start_cepmd(Port) ->
+%    {ok, _, _} =
+%    rnp_exec_sup:start_cmd("../",
+%                           ["cepmd_linux_amd64",
+%                            "-name=riak",
+%                            "-zk=master.mesos:2181",
+%                            "-riak_lib_dir=root/riak/lib",
+%                            "-port="++integer_to_list(Port)], []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
