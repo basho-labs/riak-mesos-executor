@@ -107,7 +107,7 @@ start(#state{}=State) ->
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
-    Command = [Script, "console", "-noinput", "-no_epmd"],
+    Command = [Script, "console", "-noinput", "-epmd_port " ++ integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
     case rnp_exec_sup:start_cmd(Location, Command, []) of
         {ok, Pid, _OSPid} ->
