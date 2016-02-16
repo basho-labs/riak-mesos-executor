@@ -102,7 +102,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start CEPMD
     lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD, _} = start_cepmd(Port),
+    {ok, CEPMD} = start_cepmd(Port),
     State1 = State#state{exes=[CEPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
@@ -144,12 +144,7 @@ start_cepmd(Port) ->
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
 %% TODO Please tidy this formatting, it's an abomination.
 start_erlpmd(Port) ->
-    {ok, _} = supervisor:start_child(riak_mesos_executor_sup,
-                           {erlpmd, {erlpmd, start_link, [[]]}, transient, 5000, worker, [erlpmd]}),
-
-    {ok, _} = supervisor:start_child(riak_mesos_executor_sup,
-                                     {{ip, {127,0,0,1}},
-                                      {erlpmd_tcp_listener, start_link, [[{127,0,0,1}, Port]], transient, 5000, worker, [erlpmd_tcp_listener]}}).
+    erlpmd_sup:start_link([{127,0,0,1}], Port).
 %start_cepmd(Port) ->
 %    {ok, _, _} =
 %    rnp_exec_sup:start_cmd("../",
