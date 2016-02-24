@@ -61,8 +61,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
       }=TaskInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
-    #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
-    State2 = State1#state{cepmd_port=CEPMDPort, ports=Ps},
+    #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
+    State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
@@ -75,6 +75,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
+    %% TODO Need to deploy patched erl_epmd into root/riak/lib/basho-patches
+    %% - TODO or should we let the scheduler take care of that?
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
 filter_ports(#taskdata{}=TD, #state{}=State0) ->
@@ -100,16 +102,16 @@ start(#state{}=State) ->
            task_id=TaskId,
            taskdata=Taskdata,
            exes=Exes} = State,
-    % Start CEPMD
-    lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD} = start_cepmd(Port),
-    State1 = State#state{exes=[CEPMD | Exes]},
+    % Start ErlPMD
+    lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
+    {ok, ErlPMD} = start_erlpmd(Port),
+    State1 = State#state{exes=[ErlPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
-    Command = [Script, "console", "-noinput", "-epmd_port " ++ integer_to_list(Port)],
+    Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
-    case rnp_exec_sup:start_cmd(Location, Command, []) of
+    case rnp_exec_sup:start_cmd(Location, Command, [{env, [{"ERL_EPMD_PORT", integer_to_list(Port)}]}]) of
         {ok, Pid, _OSPid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
@@ -138,21 +140,11 @@ force_stop(#state{exes=Exes}=_St) ->
     [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
     ok.
 
-start_cepmd(Port) ->
-    start_erlpmd(Port).
-
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
 %% TODO Please tidy this formatting, it's an abomination.
 start_erlpmd(Port) ->
-    erlpmd_sup:start_link([{127,0,0,1}], Port).
-%start_cepmd(Port) ->
-%    {ok, _, _} =
-%    rnp_exec_sup:start_cmd("../",
-%                           ["cepmd_linux_amd64",
-%                            "-name=riak",
-%                            "-zk=master.mesos:2181",
-%                            "-riak_lib_dir=root/riak/lib",
-%                            "-port="++integer_to_list(Port)], []).
+    %% TODO Maybe there's a nicer way to do this
+    erlpmd_sup:start_link([{0,0,0,0}], Port, riak_mesos_erlpmd_store, []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
