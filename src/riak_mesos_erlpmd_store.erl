@@ -56,7 +56,6 @@ add_registered_node(_HostName, NodeName, ExtraData) ->
 
 get_zk_node() ->
     {ok, Root, _Data} = mesos_metadata_manager:get_root_node(),
-    lager:debug("ZK: Root node: ~p", [Root]),
     {ok, ErlPMDNode, _} = ensure_child(Root, "erlpmd"),
     {ok, _, _} = ensure_child(ErlPMDNode, "nodes").
 
@@ -64,10 +63,8 @@ ensure_child(Root, Child) ->
     {ok, Children} = mesos_metadata_manager:get_children(Root),
     case lists:member(Child, Children) of
         true ->
-            lager:debug("Using existing child: ~p", [Child]),
             mesos_metadata_manager:get_node(filename:join([Root, Child]));
         false ->
-            lager:debug("Creating new child: ~p", [Child]),
             mesos_metadata_manager:make_child(Root, Child)
     end.
 
@@ -80,6 +77,7 @@ node_port(NodeName, State) ->
             lager:debug("~p:node_port -> ~p", [?MODULE, PortNo]),
             {ok, {NodeName, Payload}};
         {error, no_node} ->
+            lager:debug("~p:node_port -> no_node", [?MODULE]),
             {error, not_found};
         {error,_}=Error ->
             Error
@@ -89,17 +87,38 @@ names(St0) ->
     lager:debug("~p:names(~p)", [?MODULE, St0]),
     {ok, NodesNode, _} = get_zk_node(),
     {ok, Children} = mesos_metadata_manager:get_children(NodesNode),
-    Res = {ok, [ begin
-          {ok, Port} = node_port(N, St0),
+    Res = [ begin
+          {ok, {N, {Port, _, _, _, _, _, _, _}}} = node_port(N, St0),
           {N, Port}
-      end || N <- Children ]},
+      end || N <- Children ],
     lager:debug("~p:names -> ~p", [?MODULE, Res]),
-    Res.
+    {ok, Res}.
 
-dump(_, _) ->
-    {error, unimplemented}.
+%% TODO TODO TODO TODO TODO :)
+dump(all, St0) ->
+    Children = get_dump(St0),
+    Res = [ {N, Port, Fd} || {_, N, Port, Fd} <- Children ],
+    lager:debug("~p:dump -> ~p", [?MODULE, Res]),
+    {ok, Res};
+dump(Type, St0) ->
+    Children = get_dump(St0),
+    Res = [ {N, Port, Fd} || {Type0, N, Port, Fd} <- Children, Type0 == Type],
+    lager:debug("~p:dump -> ~p", [?MODULE, Res]),
+    {ok, Res}.
 
-%% TODO We need to be able to find nodes by Fd
+get_dump(St0) ->
+    {ok, NodesNode, _} = get_zk_node(),
+    {ok, Children} = mesos_metadata_manager:get_children(NodesNode),
+    [ begin
+          {ok, {N, {Port, Type, _, _, _, _, Fd, _}}} = node_port(N, St0),
+          {Type, N, Port, Fd}
+      end || N <- Children ].
+
+%% TODO This presents us with a problem: if someone force-stops a node with
+%% e.g. 'epmd -port 11111 -stop riak-default-4' BUT that node actually lives
+%% on a different host (which is possible because now we sync node data)
+%% This only happens if relaxed_command_check is set to true, though.
+%% TODO Support relaxed_command_check mode
 node_stopped(Fd, State) ->
     #state{ports_names=Ps} = State,
     lager:debug("~p:node_stopped(~p, ~p)", [?MODULE, Fd, State]),
@@ -108,12 +127,11 @@ node_stopped(Fd, State) ->
         NodeName ->
             remove_node(NodeName, State)
     end.
-    
 
-remove_node(NodeName, _) ->
+remove_node(NodeName, #state{ports_names=Ps0}=St0) ->
     lager:debug("~p:remove_node(~p, _)", [?MODULE, NodeName]),
     {ok, NodesNode, _} = get_zk_node(),
     case mesos_metadata_manager:delete_node(filename:join(NodesNode, NodeName)) of
-        ok -> ok;
+        ok -> {ok, St0#state{ports_names=(lists:keydelete(NodeName, 2, Ps0))}};
         {error,_}=Error -> Error
     end.
