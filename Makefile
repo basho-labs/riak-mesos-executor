@@ -13,7 +13,7 @@ ERLANG_BIN       = $(shell dirname $(shell which erl))
 REBAR           ?= $(BASE_DIR)/rebar
 OVERLAY_VARS    ?=
 
-.PHONY: all compile recompile clean clean-deps deps force-upgrade-deps cleantest test rel relclean distclean stage recycle package tarball
+.PHONY: all compile recompile clean clean-deps deps force-upgrade-deps cleantest test rel relclean distclean stage recycle package tarball patches
 
 all: compile
 compile: deps
@@ -66,10 +66,14 @@ test-deps:
 cepmd:
 	-curl -O http://riak-tools.s3.amazonaws.com/riak-mesos/cepmd_linux_amd64
 	-mv cepmd_linux_amd64 rel/$(REPO)
+
+patches:
+	$(MAKE) -C patches clean all tarball
+
 ##
 ## Packaging targets
 ##
-tarball: rel cepmd
+tarball: rel patches
 	echo "Creating packages/"$(PKGNAME)
 	mkdir -p packages
 	tar -C rel -czf $(PKGNAME) $(REPO)/
