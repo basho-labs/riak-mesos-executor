@@ -72,7 +72,7 @@
                                "918846336dcef0d7b484dac48597be598fb57878"}},
        {erlpmd,".*",
                {git,"git@github.com:sanmiguel/erlpmd.git",
-                    "8175ff5bfbd0882b2b74dd76f62adc79c6587254"}},
+                    "c46f7310f9c42ac82b63e59b9f59c982e5e1989c"}},
        {erlexec,".*",
                 {git,"https://github.com/basho/erlexec.git",
                      "f906b92797fc3701d578df45dad7653ef27e01d8"}}]}.
