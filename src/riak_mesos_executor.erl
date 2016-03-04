@@ -66,8 +66,8 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
     #'TaskInfo'{ task_id=TaskId }=TaskInfo,
     TaskStatus = #'TaskStatus'{ task_id=TaskId, state='TASK_STARTING' },
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
-    {ok, RNPSetup} = riak_mesos_rnp:setup(TaskInfo),
-    case riak_mesos_rnp:start(RNPSetup) of
+    {ok, RNPSetup} = rme_rnp:setup(TaskInfo),
+    case rme_rnp:start(RNPSetup) of
         {ok, RNPStarted, Bytes} ->
             {ok, driver_running} = executor:sendStatusUpdate(TaskStatus#'TaskStatus'{state='TASK_RUNNING', data=Bytes}),
             {ok, State#state{task_status=TaskStatus, rnp_state=RNPStarted}};
@@ -81,7 +81,7 @@ launchTask(#'TaskInfo'{}=TaskInfo, #state{}=State) ->
 -spec killTask(TaskID :: #'TaskID'{}, #state{}) -> {ok, #state{}}.
 killTask(#'TaskID'{}=TaskId, #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
     lager:debug("Killing task: ~p~n", [TaskId]),
-    ok = riak_mesos_rnp:stop(RNPSt0),
+    ok = rme_rnp:stop(RNPSt0),
     TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, State#state{task_status=TaskStatus}}.
@@ -90,7 +90,7 @@ killTask(#'TaskID'{}=TaskId, #state{task_status=TaskStatus0, rnp_state=RNPSt0}=S
 frameworkMessage("finish", #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
     lager:debug("Force finishing riak node"),
     TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
-    ok = riak_mesos_rnp:force_stop(RNPSt0),
+    ok = rme_rnp:force_stop(RNPSt0),
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, State#state{task_status=TaskStatus, rnp_state=undefined}};
 frameworkMessage(Message, #state{}=State) ->
@@ -101,7 +101,7 @@ frameworkMessage(Message, #state{}=State) ->
 shutdown(#state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
     lager:info("Shutting down the executor"),
     TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
-    ok = riak_mesos_rnp:stop(RNPSt0),
+    ok = rme_rnp:stop(RNPSt0),
     %% Remember: the behaviour takes care of stopping the process appropriately
     %% not us.
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),

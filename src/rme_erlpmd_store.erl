@@ -1,4 +1,4 @@
--module(riak_mesos_erlpmd_store).
+-module(rme_erlpmd_store).
 
 -behaviour(erlpmd_store).
 

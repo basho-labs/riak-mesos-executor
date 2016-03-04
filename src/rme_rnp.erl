@@ -1,4 +1,4 @@
--module(riak_mesos_rnp).
+-module(rme_rnp).
 
 %% TODO Tidy up the mochijson2:(en|de)code/1 usage: look at (en|de)code/2
 %%
@@ -144,7 +144,7 @@ force_stop(#state{exes=Exes}=_St) ->
 %% TODO Please tidy this formatting, it's an abomination.
 start_erlpmd(Port) ->
     %% TODO Maybe there's a nicer way to do this
-    erlpmd_sup:start_link([{0,0,0,0}], Port, riak_mesos_erlpmd_store, []).
+    erlpmd_sup:start_link([{0,0,0,0}], Port, rme_erlpmd_store, []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
