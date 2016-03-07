@@ -141,7 +141,6 @@ force_stop(#state{exes=Exes}=_St) ->
     ok.
 
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
-%% TODO Please tidy this formatting, it's an abomination.
 start_erlpmd(Port) ->
     %% TODO Maybe there's a nicer way to do this
     erlpmd_sup:start_link([{0,0,0,0}], Port, rme_erlpmd_store, []).
@@ -235,7 +234,6 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     _false = erlang:cancel_timer(TRef),
     lager:debug("healthcheck returned: ~p~n", [Result]),
     Result.
-    %% TODO Return a #'TaskInfo'{} probably
 
 %install(Location, URI) ->
 %    %% TODO Move this all into run_node_package

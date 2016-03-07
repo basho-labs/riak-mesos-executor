@@ -24,14 +24,12 @@ init([MaxRestarts, MaxSecBetweenRestarts]) ->
 start_cmd(Location, Exe, Opts) ->
     start_cmd(Exe, [{cd, Location} | Opts]).
 start_cmd(Exe, Opts0) ->
-    %% TODO This is probably asking for trouble, but....
     ChildId =
         case Exe of
             % List of lists i.e. strings
             [[_|_]=Exe0 | _Args] -> {rnpsb, Exe0};
             [_|_] -> {rnpsb, Exe}
         end,
-    %% TODO Hopefully we can rid ourselves of this eventually..
     Opts = ensure_loggers(Opts0),
     Child = {ChildId, {rnp_sup_bridge, start_link, [Exe, Opts]},
              transient, % Restart unless it exits with 'normal'
