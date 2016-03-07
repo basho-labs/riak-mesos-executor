@@ -5,8 +5,12 @@ MINOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f2)
 ARCH            ?= amd64
 OSNAME          ?= ubuntu
 OSVERSION       ?= trusty
-DEPLOY_BASE     ?= riak-tools/$(REPO)/$(MAJOR).$(MINOR)/$(PKG_VERSION)/$(OSNAME)/$(OSVERSION)/
-PKGNAME          = $(REPO)-$(PKG_VERSION)-$(ARCH).tar.gz
+S3_BASE         ?= riak-tools
+S3_PREFIX       ?= http://$(S3_BASE).s3.amazonaws.com/
+DEPLOY_BASE     ?= $(REPO)/$(MAJOR).$(MINOR)/$(PKG_VERSION)/$(OSNAME)/$(OSVERSION)/
+PKGNAME         ?= $(REPO)-$(PKG_VERSION)-$(ARCH).tar.gz
+cd packages && echo "$(S3_PREFIX)$(DEPLOY_BASE)$(PKGNAME)" > remote.txt
+cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
 
 BASE_DIR         = $(shell pwd)
 ERLANG_BIN       = $(shell dirname $(shell which erl))
@@ -75,8 +79,10 @@ tarball: rel cepmd
 	tar -C rel -czf $(PKGNAME) $(REPO)/
 	mv $(PKGNAME) packages/
 	cd packages && shasum -a 256 $(PKGNAME) > $(PKGNAME).sha
+	cd packages && echo "$(S3_PREFIX)$(DEPLOY_BASE)$(PKGNAME)" > remote.txt
+	cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
 sync:
 	echo "Uploading to "$(DEPLOY_BASE)
 	cd packages && \
-		s3cmd put --acl-public $(PKGNAME) s3://$(DEPLOY_BASE) && \
-		s3cmd put --acl-public $(PKGNAME).sha s3://$(DEPLOY_BASE)
+		s3cmd put --acl-public $(PKGNAME) s3://$(S3_BASE)/$(DEPLOY_BASE) && \
+		s3cmd put --acl-public $(PKGNAME).sha s3://$(S3_BASE)/$(DEPLOY_BASE)
