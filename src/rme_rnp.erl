@@ -75,8 +75,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
-    %% TODO Need to deploy patched erl_epmd into root/riak/lib/basho-patches
-    %% - TODO or should we let the scheduler take care of that?
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
 filter_ports(#taskdata{}=TD, #state{}=State0) ->
@@ -93,9 +91,6 @@ process_resources([#'Resource'{name="ports", type='RANGES', ranges=#'Value.Range
     process_resources(Rs, State#state{ports=Ports});
 process_resources([_ | Rs], #state{}=State) ->
     process_resources(Rs, State).
-
-%take_port(#state{ports=[P|Ps]}=State) ->
-%    {P, State#state{ports=Ps}}.
 
 start(#state{}=State) ->
     #state{cepmd_port=Port,
@@ -196,13 +191,6 @@ log_contains(File, Pattern) ->
         {_,_} -> true
     end.
 
-%% TODO riak-admin provides a 'wait-for-service <service> [<node>]' command
-%% maybe we can reuse that?
-%services_available(Admin) ->
-%    filelib:is_file(Admin) andalso
-%        "[riak_kv,riak_pipe]" ==
-%            string:strip(os:cmd(Admin++" services | grep -o '\\[[^]]*\\]'"), both, $\n).
-
 poll({Fun, Args}, Ref, Interval, Timeout) ->
     case Fun(Args) of
         true -> true;
@@ -234,13 +222,6 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     _false = erlang:cancel_timer(TRef),
     lager:debug("healthcheck returned: ~p~n", [Result]),
     Result.
-
-%install(Location, URI) ->
-%    %% TODO Move this all into run_node_package
-%    {ok, 200, _Hdrs, Resp} = hackney:get(URI, [], <<>>, []),
-%    {ok, TGZ} = hackney:body(Resp), %% TODO Actually Resp is a ref but whatever
-%    %% TODO Do we need to close the hackney client at all?
-%    ok = erl_tar:extract({binary, TGZ}, [compressed, {cwd, Location}]).
 
 configure(Location, ConfigURI, TD) ->
     {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
