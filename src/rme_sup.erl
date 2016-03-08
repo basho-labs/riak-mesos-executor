@@ -18,21 +18,16 @@
 %%
 %% -------------------------------------------------------------------
 
--module(riak_mesos_executor_app).
--behaviour(application).
+-module(rme_sup).
+-behaviour(supervisor).
+-export([start_link/0]).
+-export([init/1]).
 
--export([start/2, stop/1]).
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-%% ===================================================================
-%% API
-%% ===================================================================
-
-start(_StartType, _StartArgs) ->
-    application:ensure_all_started(erlang_mesos),
-    {ok, Pid} = riak_mesos_executor_sup:start_link(),
-    riak_mesos_executor_cli:load_schema(),
-    riak_mesos_executor_cli:register(),
-    {ok, Pid}.
-
-stop(_State) ->
-    ok.
+init([]) ->
+    ExecSup = {rnp_exec_sup, {rnp_exec_sup, start_link, []}, permanent, 300, supervisor, dynamic},
+    Mod = riak_mesos_executor,
+    Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
+    {ok, { {one_for_one, 5, 10}, [ExecSup, Executor]} }.

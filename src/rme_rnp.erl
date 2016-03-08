@@ -1,4 +1,4 @@
--module(riak_mesos_rnp).
+-module(rme_rnp).
 
 %% TODO Tidy up the mochijson2:(en|de)code/1 usage: look at (en|de)code/2
 %%
@@ -61,8 +61,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
       }=TaskInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
-    #state{ports=[CEPMDPort|Ps]}=State1 = filter_ports(TD, State0),
-    State2 = State1#state{cepmd_port=CEPMDPort, ports=Ps},
+    #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
+    State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
@@ -92,24 +92,21 @@ process_resources([#'Resource'{name="ports", type='RANGES', ranges=#'Value.Range
 process_resources([_ | Rs], #state{}=State) ->
     process_resources(Rs, State).
 
-%take_port(#state{ports=[P|Ps]}=State) ->
-%    {P, State#state{ports=Ps}}.
-
 start(#state{}=State) ->
     #state{cepmd_port=Port,
            task_id=TaskId,
            taskdata=Taskdata,
            exes=Exes} = State,
-    % Start CEPMD
-    lager:info("Starting CEPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, CEPMD, _} = start_cepmd(Port),
-    State1 = State#state{exes=[CEPMD | Exes]},
+    % Start ErlPMD
+    lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
+    {ok, ErlPMD} = start_erlpmd(Port),
+    State1 = State#state{exes=[ErlPMD | Exes]},
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
-    Command = [Script, "console", "-noinput", "-no_epmd"],
+    Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
-    case rnp_exec_sup:start_cmd(Location, Command, []) of
+    case rnp_exec_sup:start_cmd(Location, Command, [{env, [{"ERL_EPMD_PORT", integer_to_list(Port)}]}]) of
         {ok, Pid, _OSPid} ->
             State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
             %% TODO These arguments are practical but they make little sense.
@@ -138,14 +135,10 @@ force_stop(#state{exes=Exes}=_St) ->
     [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
     ok.
 
-start_cepmd(Port) ->
-    {ok, _, _} =
-    rnp_exec_sup:start_cmd("../",
-                           ["cepmd_linux_amd64",
-                            "-name=riak",
-                            "-zk=master.mesos:2181",
-                            "-riak_lib_dir=root/riak/lib",
-                            "-port="++integer_to_list(Port)], []).
+%% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
+start_erlpmd(Port) ->
+    %% TODO Maybe there's a nicer way to do this
+    erlpmd_sup:start_link([{0,0,0,0}], Port, rme_erlpmd_store, []).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
@@ -198,13 +191,6 @@ log_contains(File, Pattern) ->
         {_,_} -> true
     end.
 
-%% TODO riak-admin provides a 'wait-for-service <service> [<node>]' command
-%% maybe we can reuse that?
-%services_available(Admin) ->
-%    filelib:is_file(Admin) andalso
-%        "[riak_kv,riak_pipe]" ==
-%            string:strip(os:cmd(Admin++" services | grep -o '\\[[^]]*\\]'"), both, $\n).
-
 poll({Fun, Args}, Ref, Interval, Timeout) ->
     case Fun(Args) of
         true -> true;
@@ -236,14 +222,6 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     _false = erlang:cancel_timer(TRef),
     lager:debug("healthcheck returned: ~p~n", [Result]),
     Result.
-    %% TODO Return a #'TaskInfo'{} probably
-
-%install(Location, URI) ->
-%    %% TODO Move this all into run_node_package
-%    {ok, 200, _Hdrs, Resp} = hackney:get(URI, [], <<>>, []),
-%    {ok, TGZ} = hackney:body(Resp), %% TODO Actually Resp is a ref but whatever
-%    %% TODO Do we need to close the hackney client at all?
-%    ok = erl_tar:extract({binary, TGZ}, [compressed, {cwd, Location}]).
 
 configure(Location, ConfigURI, TD) ->
     {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
