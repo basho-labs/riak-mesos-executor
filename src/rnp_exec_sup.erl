@@ -42,13 +42,16 @@ stop_cmd(Pid) when is_pid(Pid) ->
     exec:stop(rnp_sup_bridge:erl_pid(Pid)).
 
 kill_cmd(Pid) when is_pid(Pid) ->
-    ChildId = child_id_for_pid(Pid),
-    ok = supervisor:terminate_child(?MODULE, ChildId),
-    supervisor:delete_child(?MODULE, ChildId).
-
-child_id_for_pid(Pid) ->
-    [ChildId] = [ C || {C, P, _, _} <- supervisor:which_children(?MODULE), P == Pid ],
-    ChildId.
+	MaybeChild =
+		[ C || {C, P, _, _} <- supervisor:which_children(?MODULE),
+						 P == Pid ],
+	case MaybeChild of
+		[] -> {error, not_found};
+		[ChildId] ->
+			ChildId,
+			ok = supervisor:terminate_child(?MODULE, ChildId),
+			supervisor:delete_child(?MODULE, ChildId)
+	end.
 
 % Make sure there's a logging fun for both stdout and stderr
 % Otherwise erlexec uses something nonsensical
