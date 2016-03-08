@@ -35,10 +35,10 @@ register_node(NodeName,
     Data = term_to_binary({PortNo, NodeType, Protocol, HighestVersion, LowestVersion, Extra, Fd, Creation}),
     %% TODO Does the EPMD protocol allow for returning the hostname when
     %% looking up a node's port?
-    {ok, _, _} = add_registered_node("todo-localhost", NodeName, Data),
+    {ok, _, _} = add_registered_node(NodeName, Data),
     {ok, State#state{ports_names=[{Fd, NodeName} | Ports]}}.
 
-add_registered_node(_HostName, NodeName, ExtraData) ->
+add_registered_node(NodeName, ExtraData) ->
     {ok, NodesNode, _} = get_zk_node(),
     % Node      , ChildId , Data          , Ephemeral?
     TargetNode = filename:join(NodesNode, NodeName),
