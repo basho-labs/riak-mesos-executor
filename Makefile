@@ -9,8 +9,6 @@ S3_BASE         ?= riak-tools
 S3_PREFIX       ?= http://$(S3_BASE).s3.amazonaws.com/
 DEPLOY_BASE     ?= $(REPO)/$(MAJOR).$(MINOR)/$(PKG_VERSION)/$(OSNAME)/$(OSVERSION)/
 PKGNAME         ?= $(REPO)-$(PKG_VERSION)-$(ARCH).tar.gz
-cd packages && echo "$(S3_PREFIX)$(DEPLOY_BASE)$(PKGNAME)" > remote.txt
-cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
 
 BASE_DIR         = $(shell pwd)
 ERLANG_BIN       = $(shell dirname $(shell which erl))
