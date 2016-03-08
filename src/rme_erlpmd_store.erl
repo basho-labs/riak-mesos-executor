@@ -30,12 +30,9 @@ register_node(NodeName,
               Fd, Creation, State) ->
     #state{ports_names=Ports}=State,
     lager:debug("Node ~p (~p) connected with payload ~p~n", [NodeName, Fd, Payload]),
-    %% TODO Store all the things
     %% TODO Later: maybe we can utilise Extra (from erl_epmd.erl) to store
     %% all the stuff the CEPMD was storing previously?
     Data = term_to_binary({PortNo, NodeType, Protocol, HighestVersion, LowestVersion, Extra, Fd, Creation}),
-    %% TODO We might be able to do something with a hostname here to bypass
-    %% needing to know more than the nodename?
     %% TODO Does the EPMD protocol allow for returning the hostname when
     %% looking up a node's port?
     {ok, _, _} = add_registered_node("todo-localhost", NodeName, Data),
@@ -45,7 +42,6 @@ add_registered_node(_HostName, NodeName, ExtraData) ->
     {ok, NodesNode, _} = get_zk_node(),
     % Node      , ChildId , Data          , Ephemeral?
     TargetNode = filename:join(NodesNode, NodeName),
-    %% TODO This seems somewhat naive and will probably bite me later
     case mesos_metadata_manager:get_node(TargetNode) of
         {error, no_node} ->
             ok;
