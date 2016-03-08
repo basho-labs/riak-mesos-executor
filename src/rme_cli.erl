@@ -17,7 +17,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(riak_mesos_executor_cli).
+-module(rme_cli).
 -behaviour(clique_handler).
 
 -export([command/1]).

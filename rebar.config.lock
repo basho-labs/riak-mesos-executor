@@ -70,6 +70,9 @@
        {riak_mesos_md_mgr,".*",
                           {git,"git@github.com:/basho-labs/riak-mesos-metadata-manager.git",
                                "918846336dcef0d7b484dac48597be598fb57878"}},
+       {erlpmd,".*",
+               {git,"git@github.com:sanmiguel/erlpmd.git",
+                    "b572db4a21496792055c2ebcd6a9c14dec673aa2"}},
        {erlexec,".*",
                 {git,"https://github.com/basho/erlexec.git",
                      "f906b92797fc3701d578df45dad7653ef27e01d8"}}]}.

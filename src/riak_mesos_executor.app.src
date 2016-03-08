@@ -15,6 +15,6 @@
                   hackney,
                   erlzk
                  ]},
-  {mod, { riak_mesos_executor_app, []}},
+  {mod, { rme_app, []}},
   {env, []}
  ]}.
