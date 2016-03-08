@@ -90,7 +90,6 @@ names(St0) ->
     lager:debug("~p:names -> ~p", [?MODULE, Res]),
     {ok, Res}.
 
-%% TODO TODO TODO TODO TODO :)
 dump(all, St0) ->
     Children = get_dump(St0),
     Res = [ {N, Port, Fd} || {_, N, Port, Fd} <- Children ],
