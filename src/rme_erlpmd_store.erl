@@ -6,7 +6,7 @@
          init/1,
          register_node/5,
          node_port/2,
-         names/1,
+         names/2,
          dump/2,
          node_stopped/2,
          remove_node/2
@@ -79,7 +79,7 @@ node_port(NodeName, State) ->
             Error
     end.
 
-names(St0) ->
+names(_, St0) ->
     lager:debug("~p:names(~p)", [?MODULE, St0]),
     {ok, NodesNode, _} = get_zk_node(),
     {ok, Children} = mesos_metadata_manager:get_children(NodesNode),
