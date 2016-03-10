@@ -14,3 +14,5 @@ ct.coverdata
 ct_log
 **/sampler.tar.gz
 test-deps/erlang-app-skeleton
+packages
+patches/riak-patches.tar.gz
