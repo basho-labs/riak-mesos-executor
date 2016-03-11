@@ -54,7 +54,7 @@
                      "b29a643c572bb83f8089bd57c373e7aaf1e86608"}},
        {meck,".*",
              {git,"https://github.com/eproxus/meck.git",
-                  "ccc817ee45a8ee1f2ba244ab3e8f1ddc178df685"}},
+                  "86a099f6f48382db0891c9ae468013c1a0c7c20d"}},
        {mustache,".*",
                  {git,"git://github.com/mojombo/mustache.erl",
                       "5ac1f216f7db5c16f441235b9008050d7c2ffd55"}},
