@@ -89,7 +89,7 @@ killTask(#'TaskID'{}=TaskId, #state{task_status=TaskStatus0, rnp_state=RNPSt0}=S
 -spec frameworkMessage(Message :: string(), #state{}) -> {ok, #state{}}.
 frameworkMessage("finish", #state{task_status=TaskStatus0, rnp_state=RNPSt0}=State) ->
     lager:debug("Force finishing riak node"),
-    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
+    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_FINISHED'},
     ok = rme_rnp:force_stop(RNPSt0),
     {ok, driver_running} = executor:sendStatusUpdate(TaskStatus),
     {ok, State#state{task_status=TaskStatus, rnp_state=undefined}};
