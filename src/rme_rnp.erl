@@ -59,6 +59,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
        executor=(#'ExecutorInfo'{source="riak"}),
        data=RawTData
       }=TaskInfo,
+    % Register the task_id with rme_lifeline so that it can send status updates
+    ok = rme_lifeline:set_task_id(TaskId),
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
@@ -117,6 +119,9 @@ start(#state{}=State) ->
                     lager:debug("Coordinated data (~p): ~p", [Child, Data]),
                     RexPort = Taskdata#taskdata.http_port,
                     JSON = iolist_to_binary(mochijson2:encode({struct, [{<<"RexPort">>, RexPort}]})),
+                    %% Register the node process with rme_lifeline: this way, it can bring down the executor
+                    %% when the node exits
+                    ok = rme_lifeline:register(Pid),
                     {ok, State2, JSON};
                 %% TODO Need to shut it all down here
                 %% TODO Perhaps return some other state?

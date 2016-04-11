@@ -28,6 +28,7 @@ start_link() ->
 
 init([]) ->
     ExecSup = {rnp_exec_sup, {rnp_exec_sup, start_link, []}, permanent, 300, supervisor, dynamic},
-    Mod = riak_mesos_executor,
-    Executor = {Mod, {Mod, start_link, []}, permanent, 300, worker, dynamic},
-    {ok, { {one_for_one, 5, 10}, [ExecSup, Executor]} }.
+    Lifeline = {rme_lifeline, {rme_lifeline, start_link, []}, permanent, 300, worker, dynamic},
+    Executor = {riak_mesos_executor, {riak_mesos_executor, start_link, []}, permanent, infinity, worker, dynamic},
+    %% Allow 0 restarts: this way, when rme_lifeline terminates, we bring down the application
+    {ok, { {one_for_one, 0, 1}, [ExecSup, Lifeline, Executor]} }.
