@@ -79,16 +79,20 @@ node_port(NodeName, State) ->
             Error
     end.
 
-names(_, St0) ->
+names(Type, St0) ->
     lager:debug("~p:names(~p)", [?MODULE, St0]),
     {ok, NodesNode, _} = get_zk_node(),
     {ok, Children} = mesos_metadata_manager:get_children(NodesNode),
-    Res = [ begin
-          {ok, {N, {Port, _, _, _, _, _, _, _}}} = node_port(N, St0),
-          {N, Port}
-      end || N <- Children ],
+	FMapFun = fun(N) -> fmap(Type, N) end,
+	Res = lists:filtermap(FMapFun, [ node_port(NChild, St0) || NChild <- Children ]),
     lager:debug("~p:names -> ~p", [?MODULE, Res]),
     {ok, Res}.
+
+fmap(all, {ok, {NodeName, {Port, _, _, _, _, _, _, _}}}) ->
+	{NodeName, Port};
+fmap(T, {ok, {NodeName, {Port, T, _, _, _, _, _, _}}}) ->
+	{NodeName, Port};
+fmap(_, _) -> false.
 
 dump(all, St0) ->
     Children = get_dump(St0),
