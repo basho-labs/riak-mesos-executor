@@ -16,3 +16,4 @@ ct_log
 test-deps/erlang-app-skeleton
 packages
 patches/riak-patches.tar.gz
+oauth.txt
