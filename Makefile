@@ -85,7 +85,10 @@ patches:
 tarball: rel patches
 	echo "Creating packages/"$(PKGNAME)
 	mkdir -p packages
+	echo "$(GIT_REF)" > rel/version
+	echo "$(GIT_TAG_VERSION)" >> rel/version
 	tar -C rel -czf $(PKGNAME) $(RELDIR)/
+	rm rel/version
 	mv $(PKGNAME) packages/
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
 	cd packages && echo "$(DOWNLOAD_BASE)" > remote.txt
