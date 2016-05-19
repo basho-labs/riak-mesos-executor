@@ -54,7 +54,6 @@ cleantest:
 test: test-deps
 	$(REBAR) skip_deps=true ct
 rel: relclean deps compile
-	$(REBAR) compile
 	$(REBAR) skip_deps=true generate $(OVERLAY_VARS)
 relclean:
 	rm -rf rel/riak_mesos_executor
