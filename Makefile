@@ -38,7 +38,8 @@ clean: cleantest relclean
 clean-deps:
 	$(REBAR) -r clean
 deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam:
-	$(REBAR) get-deps compile
+	$(REBAR) -C rebar.config.lock get-deps
+	$(REBAR) compile
 rebar.config.lock: deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam
 	$(REBAR) lock-deps
 deps: rebar.config.lock
