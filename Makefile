@@ -1,5 +1,7 @@
 REPO            ?= riak-mesos-executor
 RELDIR          ?= riak_mesos_executor
+GIT_REF         ?= $(shell git describe --all)
+GIT_TAG_VERSION ?= $(shell git describe --tags)
 PKG_VERSION	    ?= $(shell git describe --tags --abbrev=0 | tr - .)
 MAJOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f1)
 MINOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f2)
@@ -87,7 +89,7 @@ tarball: rel patches
 	mkdir -p packages
 	echo "$(GIT_REF)" > rel/version
 	echo "$(GIT_TAG_VERSION)" >> rel/version
-	tar -C rel -czf $(PKGNAME) $(RELDIR)/
+	tar -C rel -czf $(PKGNAME) version $(RELDIR)/
 	rm rel/version
 	mv $(PKGNAME) packages/
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
