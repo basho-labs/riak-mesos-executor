@@ -86,7 +86,7 @@ t_start_app(Config) ->
     {ok, _Sup} = rnp_exec_sup:start_link(),
     {ok, _Sampler, _} = rnp_exec_sup:start_cmd(
                       PrivDir, [?config(runner, Config), "console", "-noinput"], []),
-    {up, _} = status(Config).
+    {up, _} = wait_for(up, Config).
 
 t_notice_stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -94,10 +94,10 @@ t_notice_stop(Config) ->
     {ok, _Sup} = rnp_exec_sup:start_link(1, 1), %% no restart tolerance
     {ok, Sampler, _} = rnp_exec_sup:start_cmd(
                 PrivDir, [?config(runner, Config), "console", "-noinput"], []),
-    {up, _} = status(Config),
+    {up, _} = wait_for(up, Config),
     _ = stop(Config),
     ct:pal("Sampler alive:~s~n", [is_process_alive(Sampler)]),
-    down = status(Config).
+    down = wait_for(down, Config).
 
 t_controlled_stop(Config) ->
     process_flag(trap_exit, true),
@@ -105,9 +105,9 @@ t_controlled_stop(Config) ->
     {ok, _Sup} = rnp_exec_sup:start_link(1, 1), %% no restart tolerance
     {ok, Sampler, _} = rnp_exec_sup:start_cmd(
                          PrivDir, [?config(runner, Config), "console", "-noinput"], []),
-    {up, _} = status(Config),
+    {up, _} = wait_for(up, Config),
     ok = rnp_exec_sup:stop_cmd(Sampler),
-    down = status(Config).
+    down = wait_for(down, Config).
 
 t_brutal_stop(Config) ->
     process_flag(trap_exit, true),
@@ -115,16 +115,42 @@ t_brutal_stop(Config) ->
     {ok, _Sup} = rnp_exec_sup:start_link(1, 1),
     {ok, Sampler, _} = rnp_exec_sup:start_cmd(
                          PrivDir, [?config(runner, Config), "console", "-noinput"], []),
-    {up, _} = status(Config),
+    {up, _} = wait_for(up, Config),
     ok = rnp_exec_sup:kill_cmd(Sampler),
-    down = status(Config).
+    down = wait_for(down, Config).
 
 status(Config) ->
     case os:cmd(?config(admin, Config) ++ " status") of
         "Node is not running!\n" -> down;
         [_|_]=Other ->
-            %% TODO this dumps a little json - let's parse it
-            {up, Other}
+            case (catch mochijson2:decode(Other)) of
+                {'EXIT', {{case_clause, _}, _Stack}} ->
+                    % This happens when the sampler app is up but not ready
+                    down;
+                {struct, _}=JSON ->
+                    {up, JSON}
+            end
+    end.
+
+-define(WAIT_TOTAL, 5000).
+-define(WAIT_STEP, 100).
+wait_for(Status, Config) ->
+    wait_for(Status, Config, ?WAIT_TOTAL).
+
+wait_for(_, _, Empty) when Empty =< ?WAIT_STEP -> {error, timeout};
+wait_for(down, Config, Timeout) ->
+    case status(Config) of
+        down -> down;
+        _ ->
+            timer:sleep(100),
+            wait_for(down, Config, Timeout - ?WAIT_STEP)
+    end;
+wait_for(up, Config, Timeout) ->
+    case status(Config) of
+        {up, _}=Status -> Status;
+        down ->
+            timer:sleep(100),
+            wait_for(up, Config, Timeout - ?WAIT_STEP)
     end.
 
 stop(Config) ->
