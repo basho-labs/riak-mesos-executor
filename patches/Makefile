@@ -5,6 +5,8 @@ EBIN=ebin
 
 ERL_COMPILE_FLAGS += -I include -Werror
 
+.NOTPARALLEL:
+
 all:
 	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $(ESRC)/erl_epmd.erl
 
