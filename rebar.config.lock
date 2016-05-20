@@ -83,7 +83,7 @@
                {git,"git@github.com:sanmiguel/erlpmd.git",
                     "b572db4a21496792055c2ebcd6a9c14dec673aa2"}},
        {erlexec,".*",
-                {git,"https://github.com/basho/erlexec.git",
-                     "f906b92797fc3701d578df45dad7653ef27e01d8"}}]}.
+                {git,"https://github.com/saleyn/erlexec.git",
+                     "d4d3fc9aa7f3630b1ef77e56040f59f6e5a51ef6"}}]}.
 {plugins,[rebar_lock_deps_plugin]}.
 
