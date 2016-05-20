@@ -68,7 +68,7 @@
                  {git,"git://github.com/mojombo/mustache.erl",
                       "5ac1f216f7db5c16f441235b9008050d7c2ffd55"}},
        {gpb,".*",
-            {git,"git://github.com/tomas-abrahamsson/gpb.git",
+            {git,"https://github.com/tomas-abrahamsson/gpb.git",
                  "cad0d21c8d1867dc7f2ce0f6792c998ffa52fa4b"}},
        {erlang_mesos,".*",
                      {git,"git://github.com/basho-labs/mesos-executor-bindings.git",
