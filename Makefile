@@ -25,7 +25,7 @@ else
 SHASUM = shasum -a 256
 endif
 
-.PHONY: all compile recompile clean clean-deps deps force-upgrade-deps cleantest test rel relclean distclean stage recycle package tarball patches
+.PHONY: all compile recompile clean clean-deps deps cleantest test test-deps rel relclean distclean stage recycle package tarball patches
 
 all: compile
 compile: deps
@@ -44,13 +44,6 @@ rebar.config.lock: deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam
 	$(REBAR) lock-deps
 deps: rebar.config.lock
 	$(REBAR) -C rebar.config.lock get-deps
-#upgrade-deps:
-# TODO log-changed-deps seems to have a bug
-#	$(REBAR) log-changed-deps
-force-upgrade-deps:
-	# EXPERIMENTAL AND INVASIVE
-	rm -rf deps
-	$(REBAR) get-deps compile lock-deps
 cleantest:
 	rm -rf .eunit/*
 	rm -rf ct_log/*
@@ -74,10 +67,6 @@ test-deps:
 	-mkdir -p test/rnp_sup_bridge_SUITE_data
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
-
-cepmd:
-	-curl -O http://riak-tools.s3.amazonaws.com/riak-mesos/cepmd_linux_amd64
-	-mv cepmd_linux_amd64 rel/$(RELDIR)
 
 patches:
 	$(MAKE) -C patches clean all tarball
