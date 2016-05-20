@@ -5,15 +5,11 @@ EBIN=ebin
 
 ERL_COMPILE_FLAGS += -I include -Werror
 
-TARGET_FILES = $(EBIN)/erl_epmd.beam
-
-all: $(TARGET_FILES)
+all:
+	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $(ESRC)/erl_epmd.erl
 
 clean:
-	rm -f $(TARGET_FILES)
-
-$(EBIN)/erl_epmd.beam: $(ESRC)/erl_epmd.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	rm -f $(EBIN)/*.beam
 
 tarball:
 	-mkdir -p root/riak/lib/basho-patches
