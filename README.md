@@ -1,13 +1,17 @@
 # riak_mesos_executor
-Top-level application forming the erlang-based Mesos Executor for running Riak.
+The Executor component of the Riak Mesos Framework.
 
-### Building
+## Usage
+
+See the [RMF](https://github.com/basho-labs/riak-mesos-erlang) README for details on what, how and why to deploy the RMF.
+
+### Development
+
+To build a deployable artifact, simply run the following:
 
 ```
-make rel
+make tarball
 ```
-
-Alternatively `make stage` then `make recompile` when changes are made to `*.erl`.
 
 ### Testing
 
@@ -19,16 +23,4 @@ make && make test
 
 NB: This is not possible outside of the `mesos-slave` context: libmesos will cause a segfault without the appropriate runtime environment.
 
-For installing/running in a mesos cluster, see the [riak-mesos-tools](https://github.com/basho-labs/riak-mesos-tools) repository
-
-#### Clique Based CLI
-
-Get the status
-
-```
-./rel/riak_mesos_executor/bin/riak-mesos_executor-admin status
-```
-
-```
-{"alive":true}
-```
+For installing/running in a mesos cluster, see the [riak-mesos-erlang](https://github.com/basho-labs/riak-mesos-erlang) repository README.
