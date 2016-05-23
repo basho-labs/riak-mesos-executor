@@ -89,9 +89,9 @@ names(Type, St0) ->
     {ok, Res}.
 
 fmap(all, {ok, {NodeName, {Port, _, _, _, _, _, _, _}}}) ->
-	{NodeName, Port};
+	{true, {NodeName, Port}};
 fmap(T, {ok, {NodeName, {Port, T, _, _, _, _, _, _}}}) ->
-	{NodeName, Port};
+	{true, {NodeName, Port}};
 fmap(_, _) -> false.
 
 dump(all, St0) ->
