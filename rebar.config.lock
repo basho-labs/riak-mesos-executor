@@ -27,7 +27,7 @@
                                     "7a5835029c42b8138325405237ea7e8516a84800"}},
        {node_package,".*",
                      {git,"git://github.com/basho/node_package",
-                          "14fe2df9ae9f436f2641448b2ae16446d9e74fed"}},
+                          "39e3e50be49d091e3b0a698ad3c3743ac315a099"}},
        {getopt,".*",
                {git,"git://github.com/jcomellas/getopt.git",
                     "659a28f4145bc9843598972854299dc4ea77e4cb"}},
@@ -63,16 +63,16 @@
                      "66a53291d3fef4f46f7baa99016725c7659aa022"}},
        {meck,".*",
              {git,"https://github.com/eproxus/meck.git",
-                  "86a099f6f48382db0891c9ae468013c1a0c7c20d"}},
+                  "f6f885c484702b0c43ef13adbb9067106a5b39ff"}},
        {mustache,".*",
                  {git,"git://github.com/mojombo/mustache.erl",
                       "5ac1f216f7db5c16f441235b9008050d7c2ffd55"}},
        {gpb,".*",
-            {git,"git://github.com/tomas-abrahamsson/gpb.git",
+            {git,"https://github.com/tomas-abrahamsson/gpb.git",
                  "cad0d21c8d1867dc7f2ce0f6792c998ffa52fa4b"}},
        {erlang_mesos,".*",
                      {git,"git://github.com/basho-labs/mesos-executor-bindings.git",
-                          "593bf769acc285b54ebd5056505bbe474377eb76"}},
+                          "bbbd85e24c02290b671671b97bb48a70a6427ddf"}},
        {erlzk,".*",
               {git,"git://github.com/huaban/erlzk.git",
                    "1fa486c7b65e96f5421d977b22df526dd47e87bc"}},
@@ -83,7 +83,7 @@
                {git,"git@github.com:sanmiguel/erlpmd.git",
                     "b572db4a21496792055c2ebcd6a9c14dec673aa2"}},
        {erlexec,".*",
-                {git,"https://github.com/basho/erlexec.git",
-                     "f906b92797fc3701d578df45dad7653ef27e01d8"}}]}.
+                {git,"https://github.com/saleyn/erlexec.git",
+                     "d4d3fc9aa7f3630b1ef77e56040f59f6e5a51ef6"}}]}.
 {plugins,[rebar_lock_deps_plugin]}.
 

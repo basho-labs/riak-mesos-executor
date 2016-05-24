@@ -6,7 +6,7 @@
          init_per_suite/1,
          end_per_suite/1]).
 -export([
-         t_start_stop_app/1,
+%         t_start_stop_app/1,
          t_start_term_app/1,
          t_start_kill_app/1
         ]).
@@ -25,7 +25,7 @@ groups() ->
     [
      {cmd, [],
       [
-       t_start_stop_app,
+       %t_start_stop_app,
        t_start_term_app,
        t_start_kill_app
       ]}].
@@ -43,18 +43,19 @@ init_per_suite(Config) ->
     [{runner, Runner}, {admin, Admin} | Config].
 end_per_suite(_Config) -> ok.
 
-t_start_stop_app(Config) ->
-    process_flag(trap_exit, true),
-    WD = ?config(priv_dir, Config),
-    Runner = ?config(runner, Config),
-    {ok, _Exec} = exec:start_link([]),
-    {ok, SB} = rnp_sup_bridge:start_link([Runner, "console", "-noinput"], [{cd, WD}]),
-    % Cleanly stop the app from outside
-    os:cmd(WD++"/sampler/bin/sampler stop"),
-    % Make sure we are alerted that the application went away 'normal'ly
-    receive {'EXIT', SB, normal} -> ok;
-            Other -> ct:fail({unexpected_receive, Other})
-    after 5000 -> ct:fail(timeout) end.
+%t_start_stop_app(Config) ->
+%    process_flag(trap_exit, true),
+%    WD = ?config(priv_dir, Config),
+%    Runner = ?config(runner, Config),
+%    {ok, _Exec} = exec:start_link([]),
+%    {ok, SB} = rnp_sup_bridge:start_link([Runner, "console", "-noinput"], [{cd, WD}]),
+%    % Cleanly stop the app from outside
+%    os:cmd(WD++"/sampler/bin/sampler stop"),
+%    % Make sure we are alerted that the application went away 'normal'ly
+%    receive {'EXIT', SB, normal} -> ok;
+%            % We don't need a timeout here - we'll catch the timetrap in this receive
+%            Other -> ct:fail({unexpected_receive, Other})
+%    end.
 
 t_start_term_app(Config) ->
     process_flag(trap_exit, true),
