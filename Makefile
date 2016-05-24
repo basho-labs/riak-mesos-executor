@@ -1,5 +1,6 @@
 REPO            ?= riak-mesos-executor
 RELDIR          ?= riak_mesos_executor
+PATCHNAME       ?= riak_erlpmd_patches
 GIT_REF         ?= $(shell git describe --all)
 GIT_TAG_VERSION ?= $(shell git describe --tags)
 PKG_VERSION	    ?= $(shell git describe --tags --abbrev=0 | tr - .)
@@ -9,8 +10,10 @@ ARCH            ?= amd64
 OS_FAMILY          ?= ubuntu
 OS_VERSION       ?= trusty
 PKGNAME         ?= $(RELDIR)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
+PATCH_PKGNAME   ?= $(PATCHNAME)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
 OAUTH_TOKEN     ?= $(shell cat oauth.txt)
 RELEASE_ID      ?= $(shell curl --silent https://api.github.com/repos/basho-labs/$(REPO)/releases/tags/$(PKG_VERSION)?access_token=$(OAUTH_TOKEN) | python -c 'import sys, json; print json.load(sys.stdin)["id"]')
+	# TODO expand this to also include patches .tgz
 DEPLOY_BASE     ?= "https://uploads.github.com/repos/basho-labs/$(REPO)/releases/$(RELEASE_ID)/assets?access_token=$(OAUTH_TOKEN)&name=$(PKGNAME)"
 DOWNLOAD_BASE   ?= https://github.com/basho-labs/$(REPO)/releases/download/$(PKG_VERSION)/$(PKGNAME)
 
@@ -69,12 +72,15 @@ test-deps:
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 
 patches:
-	$(MAKE) -C patches clean all tarball
+	$(MAKE) -C patches clean all prepare
 
 ##
 ## Packaging targets
 ##
 tarball: rel patches
+	echo "Creating patches/"$(PATCH_PKGNAME)
+	tar -C patches -czf $(PATCH_PKGNAME) root/
+	mv $(PATCH_PKGNAME) packages/
 	echo "Creating packages/"$(PKGNAME)
 	mkdir -p packages
 	echo "$(GIT_REF)" > rel/version
@@ -83,8 +89,12 @@ tarball: rel patches
 	rm rel/version
 	mv $(PKGNAME) packages/
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
+	cd packages && $(SHASUM) $(PATCH_PKGNAME) > $(PATCH_PKGNAME).sha
 	cd packages && echo "$(DOWNLOAD_BASE)" > remote.txt
+	# TODO Create PATCHES_DOWNLOAD_BASE var
+	#cd packages && echo "$(DOWNLOAD_BASE)" > patches_remote.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
+	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
 
 sync:
 	echo "Uploading to "$(DOWNLOAD_BASE)

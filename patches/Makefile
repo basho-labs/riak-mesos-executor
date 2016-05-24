@@ -13,8 +13,7 @@ all:
 clean:
 	rm -f $(EBIN)/*.beam
 
-tarball:
+prepare:
 	-mkdir -p root/riak/lib/basho-patches
 	-mv $(EBIN)/* root/riak/lib/basho-patches/
-	-tar zcf riak-patches.tar.gz root/
 
