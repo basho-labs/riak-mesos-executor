@@ -101,7 +101,6 @@ tarball: rel patches
 
 sync-test:
 	echo $(RELEASE_ID)
-	echo $(PATCH_DEPLOY_BASE).sha
 
 sync:
 	echo "Uploading to "$(DOWNLOAD_BASE)
