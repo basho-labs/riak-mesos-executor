@@ -4,6 +4,7 @@ PATCHNAME       ?= riak_erlpmd_patches
 GIT_REF         ?= $(shell git describe --all)
 GIT_TAG_VERSION ?= $(shell git describe --tags)
 PKG_VERSION	    ?= $(shell git describe --tags --abbrev=0 | tr - .)
+GIT_TAG         ?= $(shell git describe --tags --abbrev=0)
 MAJOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f1)
 MINOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f2)
 ARCH            ?= amd64
@@ -12,7 +13,7 @@ OS_VERSION       ?= trusty
 PKGNAME         ?= $(RELDIR)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
 PATCH_PKGNAME   ?= $(PATCHNAME)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
 OAUTH_TOKEN     ?= $(shell cat oauth.txt)
-RELEASE_ID      ?= $(shell curl --silent https://api.github.com/repos/basho-labs/$(REPO)/releases/tags/$(PKG_VERSION)?access_token=$(OAUTH_TOKEN) | python -c 'import sys, json; print json.load(sys.stdin)["id"]')
+RELEASE_ID      ?= $(shell curl --silent https://api.github.com/repos/basho-labs/$(REPO)/releases/tags/$(GIT_TAG)?access_token=$(OAUTH_TOKEN) | python -c 'import sys, json; print json.load(sys.stdin)["id"]')
 	# TODO expand this to also include patches .tgz
 DEPLOY_BASE     ?= "https://uploads.github.com/repos/basho-labs/$(REPO)/releases/$(RELEASE_ID)/assets?access_token=$(OAUTH_TOKEN)&name=$(PKGNAME)"
 DOWNLOAD_BASE   ?= https://github.com/basho-labs/$(REPO)/releases/download/$(PKG_VERSION)/$(PKGNAME)
@@ -95,6 +96,10 @@ tarball: rel patches
 	#cd packages && echo "$(DOWNLOAD_BASE)" > patches_remote.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
+
+sync-test:
+	echo $(PKG_VERSION)
+	echo $(RELEASE_ID)
 
 sync:
 	echo "Uploading to "$(DOWNLOAD_BASE)
