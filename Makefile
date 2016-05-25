@@ -9,7 +9,7 @@ MAJOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f1)
 MINOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f2)
 ARCH            ?= amd64
 OS_FAMILY          ?= ubuntu
-OS_VERSION       ?= trusty
+OS_VERSION       ?= 14.04
 PKGNAME         ?= $(RELDIR)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
 PATCH_PKGNAME   ?= $(PATCHNAME)-$(PKG_VERSION)-$(OS_FAMILY)-$(OS_VERSION)-$(ARCH).tar.gz
 OAUTH_TOKEN     ?= $(shell cat oauth.txt)
@@ -94,8 +94,7 @@ tarball: rel patches
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
 	cd packages && $(SHASUM) $(PATCH_PKGNAME) > $(PATCH_PKGNAME).sha
 	cd packages && echo "$(DOWNLOAD_BASE)" > remote.txt
-	# TODO Create PATCHES_DOWNLOAD_BASE var
-	#cd packages && echo "$(DOWNLOAD_BASE)" > patches_remote.txt
+	cd packages && echo "$(PATCH_DOWNLOAD_BASE)" > patches_remote.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
 
