@@ -83,9 +83,9 @@ patches:
 tarball: rel patches
 	echo "Creating patches/"$(PATCH_PKGNAME)
 	tar -C patches -czf $(PATCH_PKGNAME) root/
+	mkdir -p packages/
 	mv $(PATCH_PKGNAME) packages/
 	echo "Creating packages/"$(PKGNAME)
-	mkdir -p packages
 	echo "$(GIT_REF)" > rel/version
 	echo "$(GIT_TAG_VERSION)" >> rel/version
 	tar -C rel -czf $(PKGNAME) version $(RELDIR)/
