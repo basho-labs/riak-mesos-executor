@@ -19,6 +19,13 @@ PATCH_DEPLOY_BASE ?= "https://uploads.github.com/repos/basho-labs/$(REPO)/releas
 DOWNLOAD_BASE   ?= https://github.com/basho-labs/$(REPO)/releases/download/$(GIT_TAG)/$(PKGNAME)
 PATCH_DOWNLOAD_BASE   ?= https://github.com/basho-labs/$(REPO)/releases/download/$(GIT_TAG)/$(PATCH_PKGNAME)
 
+ifeq ($(GIT_TAG_ISH),$(GIT_TAG))
+# If these 2 are identical, there have been no commits since the last tag
+BUILDING_EXACT_TAG = yes
+else
+BUILDING_EXACT_TAG = no
+endif
+
 BASE_DIR         = $(shell pwd)
 ERLANG_BIN       = $(shell dirname $(shell which erl))
 REBAR           ?= $(BASE_DIR)/rebar
@@ -104,15 +111,23 @@ prball: PKGNAME = $(RELDIR)-$(PKG_VERSION)-mesos-$(mesos)-$(OS_FAMILY)-$(OS_VERS
 prball: tarball
 
 sync-test:
-	echo $(RELEASE_ID)
+ifeq (yes,$(BUILDING_EXACT_TAG))
+	@echo $(RELEASE_ID)
+else
+	@echo "Refusing to upload: not an exact tag: "$(GIT_TAG_ISH)
+endif
 
 sync:
-	echo "Uploading to "$(DOWNLOAD_BASE)
+ifeq (yes,$(BUILDING_EXACT_TAG))
+	@echo "Uploading to "$(DOWNLOAD_BASE)
 	@cd packages && \
 		curl -XPOST -sS -H 'Content-Type: application/gzip' $(DEPLOY_BASE) --data-binary @$(PKGNAME) && \
 		curl -XPOST -sS -H 'Content-Type: application/gzip' $(PATCH_DEPLOY_BASE) --data-binary @$(PATCH_PKGNAME) && \
 		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(DEPLOY_BASE).sha --data-binary @$(PKGNAME).sha && \
 		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(PATCH_DEPLOY_BASE).sha --data-binary @$(PATCH_PKGNAME).sha
+else
+	@echo "Refusing to upload: not an exact tag: "$(GIT_TAG_ISH)
+endif
 
 ASSET_ID        ?= $(shell curl -sS https://api.github.com/repos/basho-labs/$(REPO)/releases/$(RELEASE_ID)/assets?access_token=$(OAUTH_TOKEN) | python -c 'import sys, json; print "".join([str(asset["id"]) if asset["name"] == "$(PKGNAME)" else "" for asset in json.load(sys.stdin)])')
 PATCH_ASSET_ID        ?= $(shell curl -sS https://api.github.com/repos/basho-labs/$(REPO)/releases/$(RELEASE_ID)/assets?access_token=$(OAUTH_TOKEN) | python -c 'import sys, json; print "".join([str(asset["id"]) if asset["name"] == "$(PATCH_PKGNAME)" else "" for asset in json.load(sys.stdin)])')
