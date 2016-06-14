@@ -101,7 +101,7 @@ prball: GIT_SHA = $(shell git log -1 --format='%h')
 prball: PR_COMMIT_COUNT = $(shell git log --oneline master.. | wc -l)
 prball: PKG_VERSION = PR-$(PULL_REQ)-$(PR_COMMIT_COUNT)-$(GIT_SHA)
 prball: PKGNAME = $(RELDIR)-$(PKG_VERSION)-mesos-$(mesos)-$(OS_FAMILY)-$(OS_VERSION).tar.gz
-prball: retarball
+prball: tarball
 
 sync-test:
 	echo $(RELEASE_ID)
