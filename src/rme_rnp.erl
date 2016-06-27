@@ -56,7 +56,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     #'TaskInfo'{
        task_id=TaskId,
        resources=Resources,
-       executor=(#'ExecutorInfo'{source="riak"}),
        data=RawTData
       }=TaskInfo,
     % Register the task_id with rme_lifeline so that it can send status updates
