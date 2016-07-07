@@ -30,8 +30,6 @@
 start(_StartType, _StartArgs) ->
     application:ensure_all_started(erlang_mesos),
     {ok, Pid} = rme_sup:start_link(),
-    rme_cli:load_schema(),
-    rme_cli:register(),
     {ok, Pid}.
 
 stop(_State) ->
