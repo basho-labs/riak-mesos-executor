@@ -15,7 +15,7 @@ main() {
 
     echo "Starting riak_mesos_executor..."
     ulimit -n 65536 2>&1 > /dev/null
-    riak_mesos_executor/bin/riak_mesos_executor -noinput #-no_epmd
+    riak_mesos_executor/bin/riak_mesos_executor -noinput
 }
 
 main "$@"
