@@ -12,13 +12,10 @@ main() {
     if [ -z "$HOME" ]; then
         export HOME=`eval echo "~$WHOAMI"`
     fi
-    NODENAME="$MESOS_EXECUTOR_ID"
-    echo "Updating nodename to $NODENAME"
-    sed -i"" -e "/nodename/s/= .*@/= ${NODENAME}@/" riak_mesos_executor/etc/riak_mesos_executor.conf
 
     echo "Starting riak_mesos_executor..."
     ulimit -n 65536 2>&1 > /dev/null
-    riak_mesos_executor/bin/riak_mesos_executor console -noinput #-no_epmd
+    riak_mesos_executor/bin/riak_mesos_executor -noinput #-no_epmd
 }
 
 main "$@"

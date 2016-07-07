@@ -13,6 +13,8 @@
                   lager,
                   clique,
                   hackney,
+                  mustache,
+                  erlang_mesos,
                   erlzk
                  ]},
   {mod, { rme_app, []}},

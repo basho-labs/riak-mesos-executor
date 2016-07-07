@@ -1,7 +1,6 @@
 REPO            ?= riak-mesos-executor
 RELDIR          ?= riak_mesos_executor
 PATCHNAME       ?= riak_erlpmd_patches
-GIT_REF         ?= $(shell git describe --all)
 GIT_TAG_ISH     ?= $(shell git describe --tags)
 PKG_VERSION     ?= $(GIT_TAG_ISH)
 MAJOR           ?= $(shell echo $(PKG_VERSION) | cut -d'.' -f1)
@@ -37,7 +36,7 @@ else
 SHASUM = shasum -a 256
 endif
 
-.PHONY: all compile recompile clean clean-deps deps cleantest test test-deps rel relclean distclean stage recycle package tarball patches
+.PHONY: all compile recompile clean clean-deps deps cleantest test test-deps relx rel relclean distclean stage recycle package tarball patches
 
 all: compile
 compile: deps
@@ -61,16 +60,17 @@ cleantest:
 	rm -rf ct_log/*
 test: test-deps
 	$(REBAR) skip_deps=true ct
-rel: relclean deps compile
-	$(REBAR) skip_deps=true generate $(OVERLAY_VARS)
+rel: relclean deps compile relx
+relx:
+	./relx release
 relclean:
-	rm -rf rel/riak_mesos_executor
+	rm -rf _rel/riak_mesos_executor
 distclean: clean
 	@./rebar delete-deps
 	@rm -rf $(PKG_ID).tar.gz
 stage: rel
-	$(foreach dep,$(wildcard deps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) rel/riak_mesos_executor/lib;)
-	$(foreach app,$(wildcard apps/*), rm -rf rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/riak_mesos_executor/lib;)
+	$(foreach dep,$(wildcard deps/*), rm -rf _rel/riak_mesos_executor/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) _rel/riak_mesos_executor/lib;)
+	$(foreach app,$(wildcard apps/*), rm -rf _rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) _rel/riak_mesos_executor/lib;)
 recycle: relclean clean-deps rel
 
 test-deps:
@@ -86,16 +86,14 @@ patches:
 ##
 ## Packaging targets
 ##
-tarball: rel patches
+tarball: rel retarball
+retarball: relx patches
 	echo "Creating patches/"$(PATCH_PKGNAME)
 	tar -C patches -czf $(PATCH_PKGNAME) root/
 	mkdir -p packages/
 	mv $(PATCH_PKGNAME) packages/
 	echo "Creating packages/"$(PKGNAME)
-	echo "$(GIT_REF)" > rel/version
-	echo "$(GIT_TAG_ISH)" >> rel/version
-	tar -C rel -czf $(PKGNAME) version $(RELDIR)/
-	rm rel/version
+	tar -C _rel -czf $(PKGNAME) $(RELDIR)/
 	mv $(PKGNAME) packages/
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
 	cd packages && $(SHASUM) $(PATCH_PKGNAME) > $(PATCH_PKGNAME).sha
