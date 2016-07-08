@@ -18,3 +18,4 @@ packages
 patches/riak-patches.tar.gz
 oauth.txt
 tags
+_rel
