@@ -173,10 +173,10 @@ update_task_status(ExecutorInfo, TaskStatus0, State) ->
     update_task_status(ExecutorInfo, TaskStatus0, State, undefined).
 
 update_task_status(ExecutorInfo, TaskStatus0, State, Data) ->
-    Time = erlang:system_time(seconds),
+    Timestamp = timestamp(),
     TaskStatus = TaskStatus0#'TaskStatus'{state = State,
                                           data = Data,
-                                          timestamp = Time
+                                          timestamp = Timestamp
                                           },
     ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
     TaskStatus.
