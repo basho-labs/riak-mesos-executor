@@ -158,10 +158,12 @@ terminate(_ExecutorInfo, Reason, State) ->
 %% Internal functions.
 
 create_task_status(ExecutorInfo, TaskId, AgentId) ->
+    Timestamp = timestamp(),
     Uuid = erl_mesos_utils:uuid(),
     TaskStatus = #'TaskStatus'{task_id = TaskId,
                                source = 'SOURCE_EXECUTOR',
                                agent_id = AgentId,
+                               timestamp = Timestamp,
                                uuid = Uuid
                                },
     ok = update_task_status(ExecutorInfo, TaskStatus, 'TASK_STARTING'),
@@ -178,3 +180,8 @@ update_task_status(ExecutorInfo, TaskStatus0, State, Data) ->
                                           },
     ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
     TaskStatus.
+
+-spec timestamp() -> float().
+timestamp() ->
+    {MegaSecs, Secs, _MicroSecs} = os:timestamp(),
+    float(MegaSecs * 1000000 + Secs).
