@@ -166,8 +166,7 @@ create_task_status(ExecutorInfo, TaskId, AgentId) ->
                                timestamp = Timestamp,
                                uuid = Uuid
                                },
-    ok = update_task_status(ExecutorInfo, TaskStatus, 'TASK_STARTING'),
-    TaskStatus.
+    update_task_status(ExecutorInfo, TaskStatus, 'TASK_STARTING').
 
 update_task_status(ExecutorInfo, TaskStatus0, State) ->
     update_task_status(ExecutorInfo, TaskStatus0, State, undefined).
