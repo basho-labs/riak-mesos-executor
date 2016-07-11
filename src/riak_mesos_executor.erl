@@ -79,25 +79,17 @@ disconnected(ExecutorInfo, State) ->
 launch_task(ExecutorInfo, #'Event.Launch'{task = TaskInfo}, State) ->
     #'TaskInfo'{task_id = TaskId,
                 agent_id = AgentId} = TaskInfo,
-    Uuid = erl_mesos_utils:uuid(),
     lager:debug("Launching task: ~p~n", [TaskId]),
-    TaskStatus = #'TaskStatus'{task_id = TaskId,
-                               state = 'TASK_STARTING',
-                               source = 'SOURCE_EXECUTOR',
-                               agent_id = AgentId,
-                               uuid = Uuid},
-    ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
+    TaskStatus0 = create_task_status(ExecutorInfo, TaskId, AgentId) ,
     {ok, RNPSetup} = rme_rnp:setup(TaskInfo),
     case rme_rnp:start(RNPSetup) of
         {ok, RNPStarted, Bytes} ->
-            ok = erl_mesos_executor:update(ExecutorInfo,
-                                           TaskStatus#'TaskStatus'{state = 'TASK_RUNNING',
-                                                                   data = Bytes}),
+            TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_RUNNING',
+                                    Bytes),
             {ok, State#state{task_status = TaskStatus, rnp_state = RNPStarted}};
         {error,_} = Err ->
             lager:warning("Failed to start: ~p", [Err]),
-            ok = erl_mesos_executor:update(ExecutorInfo,
-                                           TaskStatus#'TaskStatus'{state = 'TASK_FAILED'}),
+            TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_FAILED'),
             %% TODO Surely we need to return some other state here...
             {ok, State#state{task_status = TaskStatus}}
     end.
@@ -110,9 +102,7 @@ kill_task(ExecutorInfo, EventKill,
     #'Event.Kill'{task_id = TaskId} = EventKill,
     lager:debug("Killing task: ~p~n", [TaskId]),
     ok = rme_rnp:stop(RNPSt0),
-    TaskStatus = TaskStatus0#'TaskStatus'{state = 'TASK_KILLED'},
-    ok = erl_mesos_executor:update(ExecutorInfo,
-                                   TaskStatus#'TaskStatus'{state = 'TASK_KILLED'}),
+    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_KILLED'),
     {ok, State#state{task_status = TaskStatus}}.
 
 -spec acknowledged(erl_mesos_executor:executor_info(),
@@ -129,9 +119,9 @@ framework_message(ExecutorInfo, #'Event.Message'{data = <<"finish">>},
                   State) ->
     lager:debug("Force finishing riak node"),
     #state{task_status = TaskStatus0, rnp_state = RNPSt0} = State,
-    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_FINISHED'},
     ok = rme_rnp:force_stop(RNPSt0),
-    ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
+    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0,
+                                    'TASK_FINISHED'),
     {ok, State#state{task_status = TaskStatus, rnp_state = undefined}};
 framework_message(_ExecutorInfo, EventMessage, State) ->
     lager:debug("Got framework message: ~s~n", [EventMessage]),
@@ -139,11 +129,11 @@ framework_message(_ExecutorInfo, EventMessage, State) ->
 
 -spec shutdown(erl_mesos_executor:executor_info(), state()) ->
     {stop, state()}.
-shutdown(_ExecutorInfo, State) ->
+shutdown(ExecutorInfo, State) ->
     #state{task_status = TaskStatus0, rnp_state = RNPSt0} = State,
     lager:info("Shutting down the executor"),
-    TaskStatus = TaskStatus0#'TaskStatus'{state='TASK_KILLED'},
     ok = rme_rnp:stop(RNPSt0),
+    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_KILLED'),
     {stop, State#state{task_status=TaskStatus}}.
 
 -spec error(erl_mesos_executor:executor_info(),
@@ -164,3 +154,27 @@ terminate(_ExecutorInfo, Reason, State) ->
     #state{rnp_state = RNPSt0} = State,
     lager:info("Terminating the executor, reasons: ~p~n", [Reason]),
     ok = rme_rnp:force_stop(RNPSt0).
+
+%% Internal functions.
+
+create_task_status(ExecutorInfo, TaskId, AgentId) ->
+    Uuid = erl_mesos_utils:uuid(),
+    TaskStatus = #'TaskStatus'{task_id = TaskId,
+                               source = 'SOURCE_EXECUTOR',
+                               agent_id = AgentId,
+                               uuid = Uuid
+                               },
+    ok = update_task_status(ExecutorInfo, TaskStatus, 'TASK_STARTING'),
+    TaskStatus.
+
+update_task_status(ExecutorInfo, TaskStatus0, State) ->
+    update_task_status(ExecutorInfo, TaskStatus0, State, undefined).
+
+update_task_status(ExecutorInfo, TaskStatus0, State, Data) ->
+    Time = erlang:system_time(seconds),
+    TaskStatus = TaskStatus0#'TaskStatus'{state = State,
+                                          data = Data,
+                                          timestamp = Time
+                                          },
+    ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
+    TaskStatus.
