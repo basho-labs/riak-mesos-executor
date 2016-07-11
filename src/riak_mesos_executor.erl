@@ -81,8 +81,11 @@ launch_task(ExecutorInfo, #'Event.Launch'{task = TaskInfo}, State) ->
                 agent_id = AgentId} = TaskInfo,
     Uuid = erl_mesos_utils:uuid(),
     lager:debug("Launching task: ~p~n", [TaskId]),
-    TaskStatus = #'TaskStatus'{task_id = TaskId, state = 'TASK_STARTING',
-                               agent_id = AgentId, uuid = Uuid},
+    TaskStatus = #'TaskStatus'{task_id = TaskId,
+                               state = 'TASK_STARTING',
+                               source = 'SOURCE_EXECUTOR',
+                               agent_id = AgentId,
+                               uuid = Uuid},
     ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
     {ok, RNPSetup} = rme_rnp:setup(TaskInfo),
     case rme_rnp:start(RNPSetup) of
