@@ -22,14 +22,12 @@
 
 -include_lib("erl_mesos/include/executor_info.hrl").
 
--record(state,
-        {
-         riak_node,
-         framework_info,
-         agent_info,
-         task_status,
-         rnp_state
-        }).
+-record(state, {riak_node,
+                framework_info,
+                agent_info,
+                task_status,
+                rnp_state,
+                ack_dict}).
 
 -type state() :: #state{}.
 
@@ -39,7 +37,7 @@ start_link() ->
 
 -spec init(state()) -> {ok, erl_mesos_executor:'Call.Subscribe'(), state()}.
 init(_Options) ->
-    {ok, #'Call.Subscribe'{}, #state{}}.
+    {ok, #'Call.Subscribe'{}, #state{ack_dict = dict:new()}}.
 
 -spec registered(erl_mesos_executor:executor_info(),
                  erl_mesos_executor:'Event.Subscribed'(), state()) ->
@@ -48,15 +46,15 @@ registered(ExecutorInfo, EventSubscribed, State) ->
     lager:info("registered ~p~n", [ExecutorInfo]),
     #'Event.Subscribed'{framework_info = FrameworkInfo,
                         agent_info = AgentInfo} = EventSubscribed,
-    {ok, State#state{
-                     framework_info = FrameworkInfo,
-                     agent_info = AgentInfo
-                    }}.
+    {ok, State#state{framework_info = FrameworkInfo,
+                     agent_info = AgentInfo}}.
 
 -spec reregister(erl_mesos_executor:executor_info(), state()) ->
     {ok, erl_mesos_executor:'Call.Subscribe'(), state()}.
-reregister(_ExecutorInfo, State) ->
-    {ok, #'Call.Subscribe'{}, State}.
+reregister(_ExecutorInfo, #state{ack_dict = AckDict} = State) ->
+    UnackUpdates = [Value || {_Key, Value} <- dict:to_list(AckDict)],
+    {ok, #'Call.Subscribe'{unacknowledged_updates = UnackUpdates},
+     State#state{ack_dict = dict:new()}}.
 
 -spec reregistered(erl_mesos_executor:executor_info(), state()) ->
     {ok, state()}.
@@ -80,37 +78,44 @@ launch_task(ExecutorInfo, #'Event.Launch'{task = TaskInfo}, State) ->
     #'TaskInfo'{task_id = TaskId,
                 agent_id = AgentId} = TaskInfo,
     lager:debug("Launching task: ~p~n", [TaskId]),
-    TaskStatus0 = create_task_status(ExecutorInfo, TaskId, AgentId) ,
+    {ok, State1} = create_task_status(ExecutorInfo, State, TaskId, AgentId),
     {ok, RNPSetup} = rme_rnp:setup(TaskInfo),
     case rme_rnp:start(RNPSetup) of
         {ok, RNPStarted, Bytes} ->
-            TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_RUNNING',
-                                    Bytes),
-            {ok, State#state{task_status = TaskStatus, rnp_state = RNPStarted}};
+            State2 = State1#state{rnp_state = RNPStarted},
+            update_task_status(ExecutorInfo, State2, 'TASK_RUNNING', Bytes);
         {error,_} = Err ->
             lager:warning("Failed to start: ~p", [Err]),
-            TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_FAILED'),
             %% TODO Surely we need to return some other state here...
-            {ok, State#state{task_status = TaskStatus}}
+            update_task_status(ExecutorInfo, State1, 'TASK_FAILED')
     end.
 
 -spec kill_task(erl_mesos_executor:executor_info(),
                 erl_mesos_executor:'Event.Kill'(), state()) ->
     {ok, state()}.
-kill_task(ExecutorInfo, EventKill,
-          #state{task_status = TaskStatus0, rnp_state = RNPSt0} = State) ->
+kill_task(ExecutorInfo, EventKill, #state{rnp_state = RNPSt0} = State) ->
     #'Event.Kill'{task_id = TaskId} = EventKill,
     lager:debug("Killing task: ~p~n", [TaskId]),
     ok = rme_rnp:stop(RNPSt0),
-    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_KILLED'),
-    {ok, State#state{task_status = TaskStatus}}.
+    update_task_status(ExecutorInfo, State, 'TASK_KILLED').
 
 -spec acknowledged(erl_mesos_executor:executor_info(),
                    erl_mesos_executor:'Event.Acknowledged'(), state()) ->
     {ok, state()}.
-acknowledged(_ExecutorInfo, EventAcknowledged, State) ->
+acknowledged(_ExecutorInfo, EventAcknowledged, #state{ack_dict = AckDict} = State) ->
     lager:debug("Acknowledged: ~p~n", [EventAcknowledged]),
-    {ok, State}.
+    #'Event.Acknowledged'{uuid = Uuid} = EventAcknowledged,
+    case dict:find(Uuid, AckDict) of
+        {ok, TaskStatus} ->
+            AckDict1 = dict:erase(Uuid, AckDict),
+            lager:debug("TaskStatus is ~p, current state ~p~n",
+                        [TaskStatus#'TaskStatus'.state,
+                         State#state.task_status#'TaskStatus'.state]),
+            {ok, State#state{ack_dict = AckDict1}};
+        _ ->
+            lager:debug("TaskStatus is not found"),
+            {ok, State}
+    end.
 
 -spec framework_message(erl_mesos_executor:executor_info(),
                         erl_mesos_executor:'Event.Message'(), state()) ->
@@ -118,23 +123,19 @@ acknowledged(_ExecutorInfo, EventAcknowledged, State) ->
 framework_message(ExecutorInfo, #'Event.Message'{data = <<"finish">>},
                   State) ->
     lager:debug("Force finishing riak node"),
-    #state{task_status = TaskStatus0, rnp_state = RNPSt0} = State,
-    ok = rme_rnp:force_stop(RNPSt0),
-    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0,
-                                    'TASK_FINISHED'),
-    {ok, State#state{task_status = TaskStatus, rnp_state = undefined}};
+    State1 = State#state{rnp_state = undefined},
+    update_task_status(ExecutorInfo, State1, 'TASK_FINISHED');
 framework_message(_ExecutorInfo, EventMessage, State) ->
     lager:debug("Got framework message: ~s~n", [EventMessage]),
     {ok, State}.
 
 -spec shutdown(erl_mesos_executor:executor_info(), state()) ->
     {stop, state()}.
-shutdown(ExecutorInfo, State) ->
-    #state{task_status = TaskStatus0, rnp_state = RNPSt0} = State,
+shutdown(ExecutorInfo, #state{rnp_state = RNPSt0} = State) ->
     lager:info("Shutting down the executor"),
     ok = rme_rnp:stop(RNPSt0),
-    TaskStatus = update_task_status(ExecutorInfo, TaskStatus0, 'TASK_KILLED'),
-    {stop, State#state{task_status=TaskStatus}}.
+    {ok, State1} = update_task_status(ExecutorInfo, State, 'TASK_KILLED'),
+    {stop, State1}.
 
 -spec error(erl_mesos_executor:executor_info(),
             erl_mesos_executor:'Event.Error'(), state()) ->
@@ -150,35 +151,38 @@ handle_info(_ExecutorInfo, _Info, State) ->
 
 -spec terminate(erl_mesos_executor:executor_info(), term(), state()) ->
     ok.
-terminate(_ExecutorInfo, Reason, State) ->
-    #state{rnp_state = RNPSt0} = State,
+terminate(_ExecutorInfo, Reason, #state{rnp_state = RNPSt0} = _State) ->
     lager:info("Terminating the executor, reasons: ~p~n", [Reason]),
-    ok = rme_rnp:force_stop(RNPSt0).
+    case RNPSt0 of
+        undefined ->
+            ok;
+        _ ->
+            ok = rme_rnp:force_stop(RNPSt0)
+    end.
 
 %% Internal functions.
 
-create_task_status(ExecutorInfo, TaskId, AgentId) ->
-    Timestamp = timestamp(),
-    Uuid = erl_mesos_utils:uuid(),
+create_task_status(ExecutorInfo, State, TaskId, AgentId) ->
     TaskStatus = #'TaskStatus'{task_id = TaskId,
                                source = 'SOURCE_EXECUTOR',
-                               agent_id = AgentId,
-                               timestamp = Timestamp,
-                               uuid = Uuid
-                               },
-    update_task_status(ExecutorInfo, TaskStatus, 'TASK_STARTING').
+                               agent_id = AgentId},
+    State1 = State#state{task_status = TaskStatus},
+    update_task_status(ExecutorInfo, State1, 'TASK_STARTING').
 
-update_task_status(ExecutorInfo, TaskStatus0, State) ->
-    update_task_status(ExecutorInfo, TaskStatus0, State, undefined).
+update_task_status(ExecutorInfo, State, TaskStatusState) ->
+    update_task_status(ExecutorInfo, State, TaskStatusState, undefined).
 
-update_task_status(ExecutorInfo, TaskStatus0, State, Data) ->
+update_task_status(ExecutorInfo, State, TaskStatusState, Data) ->
     Timestamp = timestamp(),
-    TaskStatus = TaskStatus0#'TaskStatus'{state = State,
+    Uuid = erl_mesos_utils:uuid(),
+    #state{task_status = TaskStatus, ack_dict = AckDict} = State,
+    TaskStatus1 = TaskStatus#'TaskStatus'{state = TaskStatusState,
                                           data = Data,
-                                          timestamp = Timestamp
-                                          },
-    ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus),
-    TaskStatus.
+                                          timestamp = Timestamp,
+                                          uuid = Uuid},
+    AckDict1 = dict:store(Uuid, TaskStatus1, AckDict),
+    ok = erl_mesos_executor:update(ExecutorInfo, TaskStatus1),
+    {ok, State#state{task_status = TaskStatus1, ack_dict = AckDict1}}.
 
 -spec timestamp() -> float().
 timestamp() ->
