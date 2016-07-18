@@ -13,7 +13,7 @@
          terminate/2,
          code_change/3]).
 
--include_lib("erlang_mesos/include/mesos_pb.hrl").
+-include_lib("erl_mesos/include/executor_protobuf.hrl").
 
 -record(state, {
           task_id, %% TODO Fill in the appropriate type record

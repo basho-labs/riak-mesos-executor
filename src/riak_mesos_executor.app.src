@@ -13,7 +13,7 @@
                   lager,
                   hackney,
                   mustache,
-                  erlang_mesos,
+                  erl_mesos,
                   erlzk
                  ]},
   {mod, { rme_app, []}},

@@ -28,7 +28,6 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    application:ensure_all_started(erlang_mesos),
     {ok, Pid} = rme_sup:start_link(),
     {ok, Pid}.
 

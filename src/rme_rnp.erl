@@ -9,7 +9,7 @@
          force_stop/1
         ]).
 
--include_lib("erlang_mesos/include/mesos_pb.hrl").
+-include_lib("erl_mesos/include/executor_protobuf.hrl").
 
 -record(taskdata,
         {
