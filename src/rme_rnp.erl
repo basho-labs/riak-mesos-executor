@@ -98,8 +98,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, ErlPMD} = start_erlpmd(Port),
-    State1 = State#state{exes=[ErlPMD | Exes]},
+    {ok, _} = start_erlpmd(Port),
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
@@ -107,7 +106,7 @@ start(#state{}=State) ->
     %% TODO This whole process management needs ironing out
     case rnp_exec_sup:start_cmd(Location, Command, [{env, [{"ERL_EPMD_PORT", integer_to_list(Port)}]}]) of
         {ok, Pid, _OSPid} ->
-            State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
+            State2 = State#state{exes=[Pid | Exes]},
             %% TODO These arguments are practical but they make little sense.
             case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
                 ok ->
