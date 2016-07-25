@@ -167,7 +167,24 @@ set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
     {ok, Root, _Data} = mesos_metadata_manager:get_root_node(),
     {ok, Coordinator, _} = ensure_child(Root, "coordinator"),
     {ok, CoordinatedNodes, _} = ensure_child(Coordinator, "coordinatedNodes"),
-    {ok, _Child, _} = mesos_metadata_manager:make_child_with_data(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData, true).
+    {ok, _Child, _} = set_ephemeral_child(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData).
+
+set_ephemeral_child(Parent, ChildName, ChildData) ->
+    % Default to a total of 100 + 200 + 400 + 800 + 1600 = 3100ms
+    set_ephemeral_child(Parent, ChildName, ChildData, 100, 12800).
+
+set_ephemeral_child(_, _, _, Delay, DelayLimit) when DelayLimit < Delay ->
+    {error, timeout};
+set_ephemeral_child(Parent, ChildName, ChildData, Delay, DelayLimit) ->
+    case mesos_metadata_manager:make_child_with_data(Parent, ChildName, ChildData, true) of
+        {ok, _, _}=OKResult -> OKResult ;
+        {error, node_exists} -> % it still exists, give it a chance to disappear.
+            lager:debug("coordinated_node still exists, retrying in ~b ms", [Delay]),
+            timer:sleep(Delay),
+            set_ephemeral_child(Parent, ChildName, ChildData, Delay*2, DelayLimit);
+        {error, _}=Error -> Error
+    end.
+
 
 ensure_child(Root, Child) ->
     {ok, Children} = mesos_metadata_manager:get_children(Root),
