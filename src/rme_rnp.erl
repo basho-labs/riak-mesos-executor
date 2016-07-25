@@ -58,8 +58,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
        resources=Resources,
        data=RawTData
       }=TaskInfo,
-    % Register the task_id with rme_lifeline so that it can send status updates
-    ok = rme_lifeline:set_task_id(TaskId),
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
