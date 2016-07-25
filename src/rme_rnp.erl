@@ -169,7 +169,7 @@ set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
     {ok, _Child, _} = set_ephemeral_child(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData).
 
 set_ephemeral_child(Parent, ChildName, ChildData) ->
-    % Default to a total of 100 + 200 + 400 + 800 + 1600 = 3100ms
+    % Default to a total of 25500ms (100, 200 .. 12800)
     set_ephemeral_child(Parent, ChildName, ChildData, 100, 12800).
 
 set_ephemeral_child(_, _, _, Delay, DelayLimit) when DelayLimit < Delay ->
