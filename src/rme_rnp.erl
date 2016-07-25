@@ -129,12 +129,13 @@ start(#state{}=State) ->
             Error
     end.
 
-stop(#state{exes=Exes}) ->
+stop(#state{exes=Exes, task_id=TaskID}) ->
     [ rnp_exec_sup:stop_cmd(E) || E <- Exes ],
-    ok.
+    ok = unset_coordinated_child(TaskID).
 
-force_stop(#state{exes=Exes}=_St) ->
+force_stop(#state{exes=Exes, task_id=TaskID}=_St) ->
     [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
+    _ = unset_coordinated_child(TaskID),
     ok.
 
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
@@ -156,6 +157,11 @@ serialise_coordinated_data(#taskdata{}=TD) ->
                 {<<"Hostname">>, list_to_binary(TD#taskdata.host)}
                ]}),
     iolist_to_binary(RawIO).
+
+unset_coordinated_child(#'TaskID'{}=TaskID) ->
+    {ok, Root, _} = mesos_metadata_manager:get_root_node(),
+    lager:debug("Removing coordinatedNode/~s", [TaskID#'TaskID'.value]),
+    mesos_metadata_manager:delete_node(filename:join([Root, "coordinator", "coordinatedNodes", TaskID#'TaskID'.value])).
 
 set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
     {ok, Root, _Data} = mesos_metadata_manager:get_root_node(),
