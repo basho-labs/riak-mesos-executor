@@ -140,8 +140,8 @@ force_stop(#state{exes=Exes, task_id=TaskID}=_St) ->
 
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
 start_erlpmd(Port) ->
-    %% TODO Maybe there's a nicer way to do this
-    erlpmd_sup:start_link([{0,0,0,0}], Port, rme_erlpmd_store, []).
+    ErlPMDSup = {erlpmd_sup, {erlpmd_sup, start_link, [[{0,0,0,0}], Port, rme_erlpmd_store, []]}, permanent, 300, supervisor, dynamic},
+    supervisor:start_child(rme_sup, ErlPMDSup).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
