@@ -122,7 +122,8 @@ acknowledged(_ExecutorInfo, EventAcknowledged, #state{ack_dict = AckDict} = Stat
     {ok, state()}.
 framework_message(ExecutorInfo, #'Event.Message'{data = <<"finish">>},
                   State) ->
-    lager:debug("Force finishing riak node"),
+    lager:debug("Finishing riak node"),
+    ok = rme_rnp:stop(State#state.rnp_state),
     State1 = State#state{rnp_state = undefined},
     update_task_status(ExecutorInfo, 'TASK_FINISHED', State1);
 framework_message(_ExecutorInfo, EventMessage, State) ->

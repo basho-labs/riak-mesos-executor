@@ -58,8 +58,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
        resources=Resources,
        data=RawTData
       }=TaskInfo,
-    % Register the task_id with rme_lifeline so that it can send status updates
-    ok = rme_lifeline:set_task_id(TaskId),
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
@@ -100,8 +98,7 @@ start(#state{}=State) ->
            exes=Exes} = State,
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
-    {ok, ErlPMD} = start_erlpmd(Port),
-    State1 = State#state{exes=[ErlPMD | Exes]},
+    {ok, _} = start_erlpmd(Port),
     %% TODO These should be coming from TaskInfo
     Location = "../root/riak",
     Script = "bin/riak",
@@ -109,7 +106,7 @@ start(#state{}=State) ->
     %% TODO This whole process management needs ironing out
     case rnp_exec_sup:start_cmd(Location, Command, [{env, [{"ERL_EPMD_PORT", integer_to_list(Port)}]}]) of
         {ok, Pid, _OSPid} ->
-            State2 = State1#state{exes=[Pid | (State1#state.exes) ]},
+            State2 = State#state{exes=[Pid | Exes]},
             %% TODO These arguments are practical but they make little sense.
             case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
                 ok ->
@@ -131,18 +128,19 @@ start(#state{}=State) ->
             Error
     end.
 
-stop(#state{exes=Exes}) ->
+stop(#state{exes=Exes, task_id=TaskID}) ->
     [ rnp_exec_sup:stop_cmd(E) || E <- Exes ],
-    ok.
+    ok = unset_coordinated_child(TaskID).
 
-force_stop(#state{exes=Exes}=_St) ->
+force_stop(#state{exes=Exes, task_id=TaskID}=_St) ->
     [ rnp_exec_sup:kill_cmd(E) || E <- Exes ],
+    _ = unset_coordinated_child(TaskID),
     ok.
 
 %% TODO Bound to 127.0.0.1 because we should only need to connect to our own ErlPMD
 start_erlpmd(Port) ->
-    %% TODO Maybe there's a nicer way to do this
-    erlpmd_sup:start_link([{0,0,0,0}], Port, rme_erlpmd_store, []).
+    ErlPMDSup = {erlpmd_sup, {erlpmd_sup, start_link, [[{0,0,0,0}], Port, rme_erlpmd_store, []]}, permanent, 300, supervisor, dynamic},
+    supervisor:start_child(rme_sup, ErlPMDSup).
 
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
@@ -159,11 +157,33 @@ serialise_coordinated_data(#taskdata{}=TD) ->
                ]}),
     iolist_to_binary(RawIO).
 
+unset_coordinated_child(#'TaskID'{}=TaskID) ->
+    {ok, Root, _} = mesos_metadata_manager:get_root_node(),
+    lager:debug("Removing coordinatedNode/~s", [TaskID#'TaskID'.value]),
+    mesos_metadata_manager:delete_node(filename:join([Root, "coordinator", "coordinatedNodes", TaskID#'TaskID'.value])).
+
 set_coordinated_child(#'TaskID'{}=TaskId, SerialisedData) ->
     {ok, Root, _Data} = mesos_metadata_manager:get_root_node(),
     {ok, Coordinator, _} = ensure_child(Root, "coordinator"),
     {ok, CoordinatedNodes, _} = ensure_child(Coordinator, "coordinatedNodes"),
-    {ok, _Child, _} = mesos_metadata_manager:make_child_with_data(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData, true).
+    {ok, _Child, _} = set_ephemeral_child(CoordinatedNodes, TaskId#'TaskID'.value, SerialisedData).
+
+set_ephemeral_child(Parent, ChildName, ChildData) ->
+    % Default to a total of 25500ms (100, 200 .. 12800)
+    set_ephemeral_child(Parent, ChildName, ChildData, 100, 12800).
+
+set_ephemeral_child(_, _, _, Delay, DelayLimit) when DelayLimit < Delay ->
+    {error, timeout};
+set_ephemeral_child(Parent, ChildName, ChildData, Delay, DelayLimit) ->
+    case mesos_metadata_manager:make_child_with_data(Parent, ChildName, ChildData, true) of
+        {ok, _, _}=OKResult -> OKResult ;
+        {error, node_exists} -> % it still exists, give it a chance to disappear.
+            lager:debug("coordinated_node still exists, retrying in ~b ms", [Delay]),
+            timer:sleep(Delay),
+            set_ephemeral_child(Parent, ChildName, ChildData, Delay*2, DelayLimit);
+        {error, _}=Error -> Error
+    end.
+
 
 ensure_child(Root, Child) ->
     {ok, Children} = mesos_metadata_manager:get_children(Root),
