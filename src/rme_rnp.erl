@@ -66,11 +66,21 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
                                        TD#taskdata.framework_name),
+    NodeIface = rme_config:get_value(node_iface, "", string),
+    %% TODO What if the list comp below returns an empty list
+    [NodeBindIP|_] =
+        case NodeIface of
+            [] -> [ "0.0.0.0" ];
+            Iface ->
+                {ok, IFs} = inet:getifaddrs(),
+                [inet:ntoa(proplists:get_value(addr, Props, {0, 0, 0, 0}))
+                 || {IF, Props} <- IFs, IF == Iface]
+        end,
     % TODO: This location should come from the TaskInfo somehow
     % Probably from one of the #'Resource' records?
     ok = configure("../root/riak/etc/riak.conf",
                    config_uri(TD, "/config"),
-                   TDKV),
+                   [{bindaddress, NodeBindIP} | TDKV]),
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
