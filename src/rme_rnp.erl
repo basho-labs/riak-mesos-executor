@@ -68,13 +68,13 @@ setup(#'TaskInfo'{}=TaskInfo) ->
                                        TD#taskdata.framework_name),
     NodeIface = rme_config:get_value(node_iface, "", string),
     %% TODO What if the list comp below returns an empty list
-    [NodeBindIP|_] =
-        case NodeIface of
-            [] -> [ "0.0.0.0" ];
-            Iface ->
-                {ok, IFs} = inet:getifaddrs(),
-                [inet:ntoa(proplists:get_value(addr, Props, {0, 0, 0, 0}))
-                 || {IF, Props} <- IFs, IF == Iface]
+    {ok, IFs} = inet:getifaddrs(),
+    IfaceIPs = [inet:ntoa(proplists:get_value(addr, Props, {0, 0, 0, 0}))
+                || {IF, Props} <- IFs, IF == NodeIface],
+    NodeBindIP =
+        case IfaceIPs of
+            [] -> "0.0.0.0";
+            [IP|_] -> IP
         end,
     % TODO: This location should come from the TaskInfo somehow
     % Probably from one of the #'Resource' records?
