@@ -67,7 +67,6 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
                                        TD#taskdata.framework_name),
     NodeIface = rme_config:get_value(node_iface, "", string),
-    %% TODO What if the list comp below returns an empty list
     {ok, IFs} = inet:getifaddrs(),
     IfaceIPs = [inet:ntoa(proplists:get_value(addr, Props, {0, 0, 0, 0}))
                 || {IF, Props} <- IFs, IF == NodeIface],
