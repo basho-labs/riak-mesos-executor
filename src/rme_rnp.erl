@@ -19,6 +19,7 @@
          cluster_name     :: string(),
          uri              :: string(),
          host             :: string(),
+         root_volume      :: string(),
          use_super_chroot :: boolean(),
          http_port        :: non_neg_integer(),
          pb_port          :: non_neg_integer(),
@@ -49,6 +50,7 @@
 %%   PBPort:31346
 %%   HandoffPort:0
 %%   DisterlPort:31347
+%%   RootVolume:../root/riak
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
@@ -66,12 +68,11 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
                                        TD#taskdata.framework_name),
-    % TODO: This location should come from the TaskInfo somehow
-    % Probably from one of the #'Resource' records?
-    ok = configure("../root/riak/etc/riak.conf",
+    Root = TD#taskdata.root_volume,
+    ok = configure(filename:join([Root, "etc/riak.conf"]),
                    config_uri(TD, "/config"),
                    TDKV),
-    ok = configure("../root/riak/etc/advanced.config",
+    ok = configure(filename:join(["etc/advanced.config"]),
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
@@ -99,8 +100,7 @@ start(#state{}=State) ->
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, _} = start_erlpmd(Port),
-    %% TODO These should be coming from TaskInfo
-    Location = "../root/riak",
+    Location = Taskdata#taskdata.root_volume,
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
@@ -108,7 +108,7 @@ start(#state{}=State) ->
         {ok, Pid, _OSPid} ->
             State2 = State#state{exes=[Pid | Exes]},
             %% TODO These arguments are practical but they make little sense.
-            case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
+            case wait_for_healthcheck(fun healthcheck/1, Location, 60000) of
                 ok ->
                     Data = serialise_coordinated_data(Taskdata),
                     {ok, Child, Data} = set_coordinated_child(TaskId, Data),
@@ -142,6 +142,7 @@ start_erlpmd(Port) ->
     ErlPMDSup = {erlpmd_sup, {erlpmd_sup, start_link, [[{0,0,0,0}], Port, rme_erlpmd_store, []]}, permanent, 300, supervisor, dynamic},
     supervisor:start_child(rme_sup, ErlPMDSup).
 
+%% TODO Should we put the RootVolume value into coordinated data?
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
     RawIO = mochijson2:encode(
@@ -284,6 +285,7 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        cluster_name     = binary_to_list(proplists:get_value(<<"ClusterName">>, Data)),
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
        host             = binary_to_list(proplists:get_value(<<"Host">>, Data)),
+       root_volume      = binary_to_list(proplists:get_value(<<"RootVolume">>, Data, <<"../root/riak">>)),
        use_super_chroot = proplists:get_value(<<"UseSuperChroot">>, Data),
        http_port        = proplists:get_value(<<"HTTPPort">>, Data),
        pb_port          = proplists:get_value(<<"PBPort">>, Data),
