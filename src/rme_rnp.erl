@@ -50,7 +50,7 @@
 %%   PBPort:31346
 %%   HandoffPort:0
 %%   DisterlPort:31347
-%%   RootVolume:../root/riak
+%%   RootVolume:root
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
@@ -63,6 +63,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
     Root = TD#taskdata.root_volume,
+    Location = filename:join(["..", Root, "riak"]),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
     State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
@@ -80,10 +81,10 @@ setup(#'TaskInfo'{}=TaskInfo) ->
         end,
     % TODO: This location should come from the TaskInfo somehow
     % Probably from one of the #'Resource' records?
-    ok = configure(filename:join([Root, "etc/riak.conf"]),
+    ok = configure(filename:join([Location, "etc/riak.conf"]),
                    config_uri(TD, "/config"),
                    [{bindaddress, NodeBindIP} | TDKV]),
-    ok = configure(filename:join([Root, "etc/advanced.config"]),
+    ok = configure(filename:join([Location, "etc/advanced.config"]),
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
     ok = append_controlled_config("../root/riak/etc/riak.conf",
@@ -116,7 +117,8 @@ start(#state{}=State) ->
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, _} = start_erlpmd(Port),
-    Location = Taskdata#taskdata.root_volume,
+    Root = Taskdata#taskdata.root_volume,
+    Location = filename:join(["..", Root, "riak"]),
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
@@ -158,7 +160,6 @@ start_erlpmd(Port) ->
     ErlPMDSup = {erlpmd_sup, {erlpmd_sup, start_link, [[{0,0,0,0}], Port, rme_erlpmd_store, []]}, permanent, 300, supervisor, dynamic},
     supervisor:start_child(rme_sup, ErlPMDSup).
 
-%% TODO Should we put the RootVolume value into coordinated data?
 serialise_coordinated_data(#taskdata{}=TD) ->
     %% TODO can't we just use the original TDKV?
     RawIO = mochijson2:encode(
@@ -318,7 +319,7 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        cluster_name     = binary_to_list(proplists:get_value(<<"ClusterName">>, Data)),
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
        host             = binary_to_list(proplists:get_value(<<"Host">>, Data)),
-       root_volume      = binary_to_list(proplists:get_value(<<"RootVolume">>, Data, <<"../root/riak">>)),
+       root_volume      = binary_to_list(proplists:get_value(<<"RootVolume">>, Data, <<"root">>)),
        use_super_chroot = proplists:get_value(<<"UseSuperChroot">>, Data),
        http_port        = proplists:get_value(<<"HTTPPort">>, Data),
        pb_port          = proplists:get_value(<<"PBPort">>, Data),
