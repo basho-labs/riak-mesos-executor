@@ -48,26 +48,26 @@ clean: cleantest relclean
 	-rm -rf packages
 clean-deps:
 	$(REBAR) -r clean
-deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam:
-	$(REBAR) -C rebar.config.lock get-deps
-	$(REBAR) compile
-rebar.config.lock: deps/rebar_lock_deps_plugin/ebin/rebar_lock_deps_plugin.beam
+rebar.config.lock:
+	$(REBAR) get-deps compile
 	$(REBAR) lock-deps
+clean-lock:
+	-rm rebar.config.lock
+lock: clean-lock distclean rebar.config.lock
 deps: rebar.config.lock
 	$(REBAR) -C rebar.config.lock get-deps
 cleantest:
-	rm -rf .eunit/*
-	rm -rf ct_log/*
+	-rm -rf .eunit/*
+	-rm -rf ct_log/*
 test: test-deps
 	$(REBAR) skip_deps=true ct
-rel: relclean deps compile relx
+rel: relclean compile relx
 relx:
 	./relx release
 relclean:
-	rm -rf _rel/riak_mesos_executor
+	-rm -rf _rel/riak_mesos_executor
 distclean: clean
-	@./rebar delete-deps
-	@rm -rf $(PKG_ID).tar.gz
+	$(REBAR) delete-deps
 stage: rel
 	$(foreach dep,$(wildcard deps/*), rm -rf _rel/riak_mesos_executor/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) _rel/riak_mesos_executor/lib;)
 	$(foreach app,$(wildcard apps/*), rm -rf _rel/riak_mesos_executor/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) _rel/riak_mesos_executor/lib;)
