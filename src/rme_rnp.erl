@@ -257,13 +257,17 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     Result.
 
 configure(Location, ConfigURI, TD) ->
-    {ok, 200, _, Resp} = hackney:get(ConfigURI, [], <<>>, []),
-    {ok, ConfigTmpl} = hackney:body(Resp),
-    Template = binary_to_list(rnp_template:mustachify(ConfigTmpl)),
-    Rendered = mustache:render(Template,
-                    dict:from_list(smooth_raw_taskdata(TD))),
-    ok = file:write_file(Location, Rendered),
-    ok.
+    case hackney:get(ConfigURI, [], <<>>, []) of
+        {ok, 200, _, Resp} ->
+            {ok, ConfigTmpl} = hackney:body(Resp),
+            Template = binary_to_list(rnp_template:mustachify(ConfigTmpl)),
+            Rendered = mustache:render(Template,
+                dict:from_list(smooth_raw_taskdata(TD))),
+            ok = file:write_file(Location, Rendered);
+        {ok, 404, _, Resp} ->
+            {ok, _} = hackney:body(Resp),
+            ok
+    end.
 
 smooth_raw_taskdata([]) -> [];
 smooth_raw_taskdata([{<<"Zookeepers">>, List} | Rest]) ->
