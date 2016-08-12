@@ -66,6 +66,11 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     {struct, TDKV} = mochijson2:decode(RawTData),
     {ok, MDMgr} = mesos_metadata_manager:start_link(TD#taskdata.zookeepers,
                                        TD#taskdata.framework_name),
+    % riak's root is ./root/riak
+    % relpath to container root -> ../..
+    % data dir is ./data
+    % -> ../../data
+    RiakDataPath = "../../data",
     NodeIface = rme_config:get_value(node_iface, "", string),
     {ok, IFs} = inet:getifaddrs(),
     IfaceIPs = [inet:ntoa(proplists:get_value(addr, Props, {0, 0, 0, 0}))
@@ -79,7 +84,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     % Probably from one of the #'Resource' records?
     ok = configure("../root/riak/etc/riak.conf",
                    config_uri(TD, "/config"),
-                   [{bindaddress, NodeBindIP} | TDKV]),
+                   %% TODO s/data_dir/persistent_path/
+                   [{bindaddress, NodeBindIP}, {data_dir, RiakDataPath} | TDKV]),
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
