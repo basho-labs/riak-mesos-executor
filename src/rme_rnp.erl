@@ -83,6 +83,11 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure("../root/riak/etc/advanced.config",
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
+    ok = append_controlled_config("../root/riak/etc/riak.conf",
+                                  "priv/riak-mesos.conf",
+                                  [{bindaddress, NodeBindIP},
+                                   {data_dir, "../../data"}
+                                   | TDKV]),
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
 filter_ports(#taskdata{}=TD, #state{}=State0) ->
@@ -255,6 +260,19 @@ wait_for_healthcheck(Healthcheck, HCArgs, Timeout)
     _false = erlang:cancel_timer(TRef),
     lager:debug("healthcheck returned: ~p~n", [Result]),
     Result.
+
+append_controlled_config(Destination, TemplSrc, TD) ->
+    %% This appends to the given config file the things we *must* control.
+    {ok, TemplRaw} = file:read_file(TemplSrc),
+    case file:open(Destination, [append]) of
+        {error, _}=Error -> Error;
+        {ok, FD} ->
+            Template = binary_to_list(rnp_template:mustachify(TemplRaw)),
+            Rendered = mustache:render(Template,
+                                       dict:from_list(smooth_raw_taskdata(TD))),
+            ok = file:write(FD, Rendered),
+            ok = file:close(FD)
+    end.
 
 configure(Location, ConfigURI, TD) ->
     case hackney:get(ConfigURI, [], <<>>, []) of
