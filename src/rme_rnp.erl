@@ -69,7 +69,8 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     % Remove the "." components
     RootClean = lists:filter(fun(".") -> false; (_) -> true end, RootComponents),
     RootDepth = length(filename:split(RootClean)),
-    DataDir = filename:join(lists:duplicate(RootDepth, "..")),
+    % From Riak's PoV there's an extra level, so +1 
+    DataDir = filename:join(lists:duplicate(RootDepth + 1, "..") ++ ["data"]),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
     State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
