@@ -36,7 +36,9 @@ else
 SHASUM = shasum -a 256
 endif
 
-.PHONY: all compile recompile clean clean-deps deps cleantest test test-deps relx rel relclean distclean stage recycle package tarball patches
+.PHONY: all compile recompile clean clean-deps deps cleantest test test-deps relx \
+	rel relclean distclean stage recycle package tarball \
+	patches rel-patches root-patches
 
 all: compile
 compile: deps
@@ -45,6 +47,7 @@ recompile:
 	$(REBAR) compile skip_deps=true
 clean: cleantest relclean
 	$(REBAR) clean
+	$(MAKE) -C patches clean
 	-rm -rf packages
 clean-deps:
 	$(REBAR) -r clean
@@ -80,27 +83,39 @@ test-deps:
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 
-patches:
-	$(MAKE) -C patches clean all prepare
+define build-patches
+	$(MAKE) RIAK_BASE=$(RIAK_BASE) -C patches clean all prepare
+	-echo "Creating patches/"$(PATCH_PKGNAME)
+	tar -C patches/sandbox -czf $(PATCH_PKGNAME) $(RIAK_BASE)/
+	mkdir -p packages/
+	mv $(PATCH_PKGNAME) packages/
+	cd packages && $(SHASUM) $(PATCH_PKGNAME) > $(PATCH_PKGNAME).sha
+	cd packages && echo "$(PATCH_DOWNLOAD_BASE)" > patches_remote.txt
+	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
+endef
+
+root-patches: RIAK_BASE = root
+root-patches:
+	$(call build-patches)
+
+rel-patches: RIAK_BASE = rel
+rel-patches: PATCHNAME = riak_erlpmd_patches-rel
+rel-patches:
+	$(call build-patches)
 
 ##
 ## Packaging targets
 ##
+RIAK_BASE ?= root
 tarball: rel retarball
 retarball: relx patches
-	echo "Creating patches/"$(PATCH_PKGNAME)
-	tar -C patches -czf $(PATCH_PKGNAME) root/
+	-echo "Creating packages/"$(PKGNAME)
 	mkdir -p packages/
-	mv $(PATCH_PKGNAME) packages/
-	echo "Creating packages/"$(PKGNAME)
 	tar -C _rel -czf $(PKGNAME) $(RELDIR)/
 	mv $(PKGNAME) packages/
 	cd packages && $(SHASUM) $(PKGNAME) > $(PKGNAME).sha
-	cd packages && $(SHASUM) $(PATCH_PKGNAME) > $(PATCH_PKGNAME).sha
 	cd packages && echo "$(DOWNLOAD_BASE)" > remote.txt
-	cd packages && echo "$(PATCH_DOWNLOAD_BASE)" > patches_remote.txt
 	cd packages && echo "$(BASE_DIR)/packages/$(PKGNAME)" > local.txt
-	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
 
 prball: GIT_SHA = $(shell git log -1 --format='%h')
 prball: PR_COMMIT_COUNT = $(shell git log --oneline master.. | wc -l)
