@@ -19,7 +19,7 @@
          cluster_name     :: string(),
          uri              :: string(),
          host             :: string(),
-         root_volume      :: string(),
+         riak_root_path   :: string(),
          use_super_chroot :: boolean(),
          http_port        :: non_neg_integer(),
          pb_port          :: non_neg_integer(),
@@ -50,7 +50,7 @@
 %%   PBPort:31346
 %%   HandoffPort:0
 %%   DisterlPort:31347
-%%   RootVolume:root
+%%   RiakRootPath:root
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
@@ -62,7 +62,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
       }=TaskInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
-    Root = TD#taskdata.root_volume,
+    Root = TD#taskdata.riak_root_path,
     Location = filename:join(["..", Root, "riak"]),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
     State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
@@ -117,7 +117,7 @@ start(#state{}=State) ->
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, _} = start_erlpmd(Port),
-    Root = Taskdata#taskdata.root_volume,
+    Root = Taskdata#taskdata.riak_root_path,
     Location = filename:join(["..", Root, "riak"]),
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
@@ -319,7 +319,7 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        cluster_name     = binary_to_list(proplists:get_value(<<"ClusterName">>, Data)),
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
        host             = binary_to_list(proplists:get_value(<<"Host">>, Data)),
-       root_volume      = binary_to_list(proplists:get_value(<<"RootVolume">>, Data, <<"root">>)),
+       riak_root_path   = binary_to_list(proplists:get_value(<<"RiakRootPath">>, Data, <<"root">>)),
        use_super_chroot = proplists:get_value(<<"UseSuperChroot">>, Data),
        http_port        = proplists:get_value(<<"HTTPPort">>, Data),
        pb_port          = proplists:get_value(<<"PBPort">>, Data),
