@@ -83,6 +83,10 @@ test-deps:
 	-cp test-deps/sampler.tar.gz test/rnp_SUITE_data/
 	-cp test-deps/sampler.tar.gz test/rnp_sup_bridge_SUITE_data/
 
+##
+## Packaging targets
+##
+RIAK_BASE ?= root
 define build-patches
 	$(MAKE) RIAK_BASE=$(RIAK_BASE) -C patches clean all prepare
 	-echo "Creating patches/"$(PATCH_PKGNAME)
@@ -105,10 +109,6 @@ rel-patches: PATCHNAME = riak_erlpmd_patches-rel
 rel-patches:
 	$(call build-patches)
 
-##
-## Packaging targets
-##
-RIAK_BASE ?= root
 tarball: rel retarball
 retarball: relx patches
 	-echo "Creating packages/"$(PKGNAME)
