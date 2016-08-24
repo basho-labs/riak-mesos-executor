@@ -94,6 +94,8 @@ define build-patches
 	cd packages && echo "$(BASE_DIR)/packages/$(PATCH_PKGNAME)" > patches_local.txt
 endef
 
+patches: rel-patches root-patches
+
 root-patches: RIAK_BASE = root
 root-patches:
 	$(call build-patches)
