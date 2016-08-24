@@ -100,7 +100,7 @@ root-patches: RIAK_BASE = root
 root-patches:
 	$(call build-patches)
 
-rel-patches: RIAK_BASE = rel
+rel-patches: RIAK_BASE = .
 rel-patches: PATCHNAME = riak_erlpmd_patches-rel
 rel-patches:
 	$(call build-patches)
