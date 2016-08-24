@@ -64,6 +64,12 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     TD = parse_taskdata(RawTData),
     Root = TD#taskdata.riak_root_path,
     Location = filename:join(["..", Root, "riak"]),
+    % DataDir needs to be calculated based on the depth of Root
+    RootComponents = filename:split(Root),
+    % Remove the "." components
+    RootClean = lists:filter(fun(".") -> false; (_) -> true end, RootComponents),
+    RootDepth = length(filename:split(RootClean)),
+    DataDir = filename:join(lists:duplicate(RootDepth, "..")),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
     State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
@@ -90,7 +96,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = append_controlled_config(filename:join([Location, "etc/riak.conf"]),
                                   "priv/riak-mesos.conf",
                                   [{bindaddress, NodeBindIP},
-                                   {data_dir, "../../data"}
+                                   {data_dir, DataDir}
                                    | TDKV]),
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
