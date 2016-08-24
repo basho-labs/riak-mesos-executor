@@ -87,7 +87,7 @@ setup(#'TaskInfo'{}=TaskInfo) ->
     ok = configure(filename:join([Location, "etc/advanced.config"]),
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
-    ok = append_controlled_config("../root/riak/etc/riak.conf",
+    ok = append_controlled_config(filename:join([Location, "etc/riak.conf"]),
                                   "priv/riak-mesos.conf",
                                   [{bindaddress, NodeBindIP},
                                    {data_dir, "../../data"}
