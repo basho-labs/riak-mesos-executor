@@ -19,6 +19,7 @@
          cluster_name     :: string(),
          uri              :: string(),
          host             :: string(),
+         riak_root_path   :: string(),
          use_super_chroot :: boolean(),
          http_port        :: non_neg_integer(),
          pb_port          :: non_neg_integer(),
@@ -49,6 +50,7 @@
 %%   PBPort:31346
 %%   HandoffPort:0
 %%   DisterlPort:31347
+%%   RiakRootPath:root
 %% }
 
 setup(#'TaskInfo'{}=TaskInfo) ->
@@ -60,6 +62,15 @@ setup(#'TaskInfo'{}=TaskInfo) ->
       }=TaskInfo,
     State0 = process_resources(Resources),
     TD = parse_taskdata(RawTData),
+    Root = TD#taskdata.riak_root_path,
+    Location = filename:join(["..", Root, "riak"]),
+    % DataDir needs to be calculated based on the depth of Root
+    RootComponents = filename:split(Root),
+    % Remove the "." components
+    RootClean = lists:filter(fun(".") -> false; (_) -> true end, RootComponents),
+    RootDepth = length(filename:split(RootClean)),
+    % From Riak's PoV there's an extra level, so +1 
+    DataDir = filename:join(lists:duplicate(RootDepth + 1, "..") ++ ["data"]),
     #state{ports=[ErlPMDPort|Ps]}=State1 = filter_ports(TD, State0),
     State2 = State1#state{cepmd_port=ErlPMDPort, ports=Ps},
     %% TODO There are cleaner ways to wrangle JSON in erlang
@@ -77,16 +88,16 @@ setup(#'TaskInfo'{}=TaskInfo) ->
         end,
     % TODO: This location should come from the TaskInfo somehow
     % Probably from one of the #'Resource' records?
-    ok = configure("../root/riak/etc/riak.conf",
+    ok = configure(filename:join([Location, "etc/riak.conf"]),
                    config_uri(TD, "/config"),
                    [{bindaddress, NodeBindIP} | TDKV]),
-    ok = configure("../root/riak/etc/advanced.config",
+    ok = configure(filename:join([Location, "etc/advanced.config"]),
                    config_uri(TD, "/advancedConfig"),
                    [{cepmdport, State2#state.cepmd_port}]),
-    ok = append_controlled_config("../root/riak/etc/riak.conf",
+    ok = append_controlled_config(filename:join([Location, "etc/riak.conf"]),
                                   "priv/riak-mesos.conf",
                                   [{bindaddress, NodeBindIP},
-                                   {data_dir, "../../data"}
+                                   {data_dir, DataDir}
                                    | TDKV]),
     {ok, State2#state{task_id=TaskId, taskdata=TD, md_mgr=MDMgr}}.
 
@@ -113,8 +124,8 @@ start(#state{}=State) ->
     % Start ErlPMD
     lager:info("Starting ErlPMD on port ~s~n", [integer_to_list(Port)]),
     {ok, _} = start_erlpmd(Port),
-    %% TODO These should be coming from TaskInfo
-    Location = "../root/riak",
+    Root = Taskdata#taskdata.riak_root_path,
+    Location = filename:join(["..", Root, "riak"]),
     Script = "bin/riak",
     Command = [Script, "console", "-noinput", "-epmd_port", integer_to_list(Port)],
     %% TODO This whole process management needs ironing out
@@ -122,7 +133,7 @@ start(#state{}=State) ->
         {ok, Pid, _OSPid} ->
             State2 = State#state{exes=[Pid | Exes]},
             %% TODO These arguments are practical but they make little sense.
-            case wait_for_healthcheck(fun healthcheck/1, "../root/riak", 60000) of
+            case wait_for_healthcheck(fun healthcheck/1, Location, 60000) of
                 ok ->
                     Data = serialise_coordinated_data(Taskdata),
                     {ok, Child, Data} = set_coordinated_child(TaskId, Data),
@@ -315,6 +326,7 @@ parse_taskdata(JSON) when is_binary(JSON) ->
        cluster_name     = binary_to_list(proplists:get_value(<<"ClusterName">>, Data)),
        uri              = binary_to_list(proplists:get_value(<<"URI">>, Data)),
        host             = binary_to_list(proplists:get_value(<<"Host">>, Data)),
+       riak_root_path   = binary_to_list(proplists:get_value(<<"RiakRootPath">>, Data, <<"root">>)),
        use_super_chroot = proplists:get_value(<<"UseSuperChroot">>, Data),
        http_port        = proplists:get_value(<<"HTTPPort">>, Data),
        pb_port          = proplists:get_value(<<"PBPort">>, Data),
