@@ -104,7 +104,7 @@ root-patches: RIAK_BASE = root
 root-patches:
 	$(call build-patches)
 
-rel-patches: RIAK_BASE = .
+rel-patches: RIAK_BASE ?= .
 rel-patches: PATCHNAME = riak_erlpmd_patches-rel
 rel-patches:
 	$(call build-patches)
@@ -132,14 +132,30 @@ else
 	@echo "Refusing to upload: not an exact tag: "$(GIT_TAG_ISH)
 endif
 
+define do-sync-patches
+	@echo "Deploying "$(PATCH_PKGNAME)
+	@cd packages && \
+		curl -XPOST -sS -H 'Content-Type: application/gzip' $(PATCH_DEPLOY_BASE) --data-binary @$(PATCH_PKGNAME) && \
+		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(PATCH_DEPLOY_BASE).sha --data-binary @$(PATCH_PKGNAME).sha
+endef
+
+# TODO This is a really inefficient way of coding this but it does work
+sync-root-patches: RIAK_BASE ?= root
+sync-root-patches:
+	$(call do-sync-patches)
+
+sync-rel-patches: RIAK_BASE = .
+sync-rel-patches: PATCHNAME = riak_erlpmd_patches-rel
+sync-rel-patches:
+	$(call do-sync-patches)
+
 sync:
 ifeq (yes,$(BUILDING_EXACT_TAG))
 	@echo "Uploading to "$(DOWNLOAD_BASE)
 	@cd packages && \
 		curl -XPOST -sS -H 'Content-Type: application/gzip' $(DEPLOY_BASE) --data-binary @$(PKGNAME) && \
-		curl -XPOST -sS -H 'Content-Type: application/gzip' $(PATCH_DEPLOY_BASE) --data-binary @$(PATCH_PKGNAME) && \
-		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(DEPLOY_BASE).sha --data-binary @$(PKGNAME).sha && \
-		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(PATCH_DEPLOY_BASE).sha --data-binary @$(PATCH_PKGNAME).sha
+		curl -XPOST -sS -H 'Content-Type: application/octet-stream' $(DEPLOY_BASE).sha --data-binary @$(PKGNAME).sha
+	$(MAKE) sync-rel-patches sync-root-patches
 else
 	@echo "Refusing to upload: not an exact tag: "$(GIT_TAG_ISH)
 endif
