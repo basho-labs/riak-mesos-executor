@@ -86,7 +86,6 @@ test-deps:
 ##
 ## Packaging targets
 ##
-RIAK_BASE ?= root
 define build-patches
 	$(MAKE) RIAK_BASE=$(RIAK_BASE) -C patches clean all prepare
 	-echo "Creating patches/"$(PATCH_PKGNAME)
